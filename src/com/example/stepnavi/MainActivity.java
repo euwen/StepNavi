@@ -28,20 +28,18 @@ public class MainActivity extends Activity implements SensorEventListener {
 	private boolean isRecording = false;
 	private ToggleButton toggle;
 	private SensorManager sensorManager;
-	private Sensor accelerometer;
+	//private Sensor accelerometer;
 	private Sensor linear;
-	private Sensor magnetic;
+	//private Sensor magnetic;
+	private Sensor orientation;
 	
 	// okay, gányolás
-	private float accX = 0;
-	private float accY = 0;
-	private float accZ = 0;
+	private float oriX = 0;
+	private float oriY = 0;
+	private float oriZ = 0;
 	private float linX = 0;
 	private float linY = 0;
 	private float linZ = 0;
-	private float magX = 0;
-	private float magY = 0;
-	private float magZ = 0;
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -73,9 +71,8 @@ public class MainActivity extends Activity implements SensorEventListener {
 		
 		sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
 		List<Sensor>  list = sensorManager.getSensorList(Sensor.TYPE_ALL);
-		accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 		linear = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
-		magnetic = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+		orientation = sensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION);
 	}
 	
 	private void writeData()
@@ -89,12 +86,12 @@ public class MainActivity extends Activity implements SensorEventListener {
             	bw.append(times.get(i).toString());
             	bw.append(";");
             	
-            	for (int j=0; j<8; j++)
+            	for (int j=0; j<5; j++)
             	{
-	            	bw.append(data.get(9*i+j).toString());
+	            	bw.append(data.get(6*i+j).toString());
 	            	bw.append(";");
             	}
-            	bw.append(data.get(9*i+8).toString());
+            	bw.append(data.get(6*i+5).toString());
             	bw.newLine();
             }
             
@@ -125,10 +122,10 @@ public class MainActivity extends Activity implements SensorEventListener {
 		if (isRecording == true)
 		{
 			boolean good = false;
-			if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
-				accX = event.values[0];
-				accY = event.values[1];
-				accZ = event.values[2];
+			if (event.sensor.getType() == Sensor.TYPE_ORIENTATION) {
+				oriX = event.values[0];
+				oriY = event.values[1];
+				oriZ = event.values[2];
 				good = true;
 			} else if (event.sensor.getType() == Sensor.TYPE_LINEAR_ACCELERATION)
 			{
@@ -136,26 +133,17 @@ public class MainActivity extends Activity implements SensorEventListener {
 				linY = event.values[1];
 				linZ = event.values[2];
 				good = true;
-			} else if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD)
-			{
-				magX = event.values[0];
-				magY = event.values[1];
-				magZ = event.values[2];
-				good = true;
-			}
+			} 
 			
 			if (good == true)
 			{
-				data.add(accX);
-				data.add(accY);
-				data.add(accZ);
+				data.add(oriX);
+				data.add(oriY);
+				data.add(oriZ);
 				data.add(linX);
 				data.add(linY);
 				data.add(linZ);
-				data.add(magX);
-				data.add(magY);
-				data.add(magZ);
-				
+
 				times.add(System.currentTimeMillis()-begin);
 			}
 		}
@@ -170,8 +158,7 @@ public class MainActivity extends Activity implements SensorEventListener {
 	@Override
 	protected void onResume() {
 		super.onResume();
-		sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_FASTEST);
+		sensorManager.registerListener(this, orientation, SensorManager.SENSOR_DELAY_FASTEST);
 		sensorManager.registerListener(this, linear, SensorManager.SENSOR_DELAY_FASTEST);
-		sensorManager.registerListener(this, magnetic, SensorManager.SENSOR_DELAY_FASTEST);
 	}
 }
