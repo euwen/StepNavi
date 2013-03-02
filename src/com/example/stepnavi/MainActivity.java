@@ -17,29 +17,23 @@ import android.os.Environment;
 import android.view.Menu;
 import android.widget.CompoundButton;
 import android.widget.CompoundButton.OnCheckedChangeListener;
+import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
 
 public class MainActivity extends Activity implements SensorEventListener {
 
+	private TextView tv;
+	
 	private long begin;
 	private ArrayList<Long> times;
 	private ArrayList<Float> data;
 	private boolean isRecording = false;
 	private ToggleButton toggle;
 	private SensorManager sensorManager;
-	//private Sensor accelerometer;
 	private Sensor linear;
-	//private Sensor magnetic;
-	private Sensor orientation;
-	
-	// okay, gányolás
-	private float oriX = 0;
-	private float oriY = 0;
-	private float oriZ = 0;
-	private float linX = 0;
-	private float linY = 0;
-	private float linZ = 0;
+	private Sensor gravity;
+	private Sensor magnetic;
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -48,6 +42,8 @@ public class MainActivity extends Activity implements SensorEventListener {
 		
 		times = new ArrayList<Long>();
 		data = new ArrayList<Float>();
+		
+		tv = (TextView) findViewById(R.id.textView1);
 		
 		toggle = (ToggleButton) findViewById(R.id.toggleButton1);
 		toggle.setOnCheckedChangeListener(new OnCheckedChangeListener() {
@@ -71,8 +67,12 @@ public class MainActivity extends Activity implements SensorEventListener {
 		
 		sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
 		List<Sensor>  list = sensorManager.getSensorList(Sensor.TYPE_ALL);
+		//linear = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
+		//orientation = sensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION);
+		//accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 		linear = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
-		orientation = sensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION);
+		gravity = sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
+		magnetic = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
 	}
 	
 	private void writeData()
@@ -117,35 +117,79 @@ public class MainActivity extends Activity implements SensorEventListener {
 
 	}
 
+	private float[] mGravity = new float[3];
+	private float[] mGeomagnetic = new float[3];
+	private float[] mRotationMatrixA = new float[16];
+	private float[] mRotationMatrixB = new float[16];
+	private float[] mRotationMatrix = new float[16];
+	private float[] mRotationMatrixInv = new float[16];
+	private float[] mAngles = new float[3];
+	private float[] mLinear = new float[4];
+	private float[] mLinearWorld = new float[4];
+	private boolean ready = false;
+	
 	@Override
 	public void onSensorChanged(SensorEvent event) {
+		
+		// TODO: Ez pedig kéne
+		
+		/*
+	    if (event.accuracy == SensorManager.SENSOR_STATUS_UNRELIABLE) {
+	        return;
+	    }
+	    */
+
+		//Calculate orientation
+		if ((event.sensor.getType() == Sensor.TYPE_GRAVITY) || (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD))
+		{
+		    if (event.sensor.getType() == Sensor.TYPE_GRAVITY)  
+		    	mGravity = event.values;
+		    if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) 
+		    	mGeomagnetic =  event.values;
+	
+		    if (mGravity != null && mGeomagnetic != null) {
+	
+		        float[] rotationMatrixA = mRotationMatrixA;
+		        if (SensorManager.getRotationMatrix(rotationMatrixA, null, mGravity, mGeomagnetic)) {
+		        	mRotationMatrix = rotationMatrixA;
+		            ready = true;
+		        	float[] rotationMatrixB = mRotationMatrixB;
+		            SensorManager.remapCoordinateSystem(rotationMatrixA,
+		                    SensorManager.AXIS_X, SensorManager.AXIS_Z,
+		                    rotationMatrixB);
+		            SensorManager.getOrientation(rotationMatrixB, mAngles);
+		        }
+		        tv.setText("X: " + String.valueOf((int)(mAngles[0]/3.14*180)) + " Y: " + String.valueOf((int)(mAngles[1]/3.14*180)) + " Z: " + String.valueOf((int)(mAngles[2]/3.14*180)));    
+		    }
+		}
+		
+		// Calc Moving
+		
+		if (event.sensor.getType() == Sensor.TYPE_LINEAR_ACCELERATION)
+		{
+			if (ready == true)
+			{
+				android.opengl.Matrix.invertM(mRotationMatrixInv, 0, mRotationMatrix, 0);
+				mLinear[0] = event.values[0];
+				mLinear[1] = event.values[1];
+				mLinear[2] = event.values[2];
+				mLinear[3] = 0.0f;
+				android.opengl.Matrix.multiplyMV(mLinearWorld, 0, mRotationMatrixInv, 0, mLinear, 0);
+			}
+		}
+		
+		
+		// Record
 		if (isRecording == true)
 		{
-			boolean good = false;
-			if (event.sensor.getType() == Sensor.TYPE_ORIENTATION) {
-				oriX = event.values[0];
-				oriY = event.values[1];
-				oriZ = event.values[2];
-				good = true;
-			} else if (event.sensor.getType() == Sensor.TYPE_LINEAR_ACCELERATION)
-			{
-				linX = event.values[0];
-				linY = event.values[1];
-				linZ = event.values[2];
-				good = true;
-			} 
-			
-			if (good == true)
-			{
-				data.add(oriX);
-				data.add(oriY);
-				data.add(oriZ);
-				data.add(linX);
-				data.add(linY);
-				data.add(linZ);
+			data.add(mLinearWorld[0]);
+			data.add(mLinearWorld[1]);
+			data.add(mLinearWorld[2]);
+			data.add(mAngles[0]);
+			data.add(mAngles[1]);
+			data.add(mAngles[2]);
 
-				times.add(System.currentTimeMillis()-begin);
-			}
+			times.add(System.currentTimeMillis()-begin);
 		}
 	}
 
@@ -158,7 +202,11 @@ public class MainActivity extends Activity implements SensorEventListener {
 	@Override
 	protected void onResume() {
 		super.onResume();
-		sensorManager.registerListener(this, orientation, SensorManager.SENSOR_DELAY_FASTEST);
+		//sensorManager.registerListener(this, orientation, SensorManager.SENSOR_DELAY_FASTEST);
+		//sensorManager.registerListener(this, linear, SensorManager.SENSOR_DELAY_FASTEST);
+		//sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_NORMAL);
 		sensorManager.registerListener(this, linear, SensorManager.SENSOR_DELAY_FASTEST);
+		sensorManager.registerListener(this, gravity, SensorManager.SENSOR_DELAY_FASTEST);
+		sensorManager.registerListener(this, magnetic, SensorManager.SENSOR_DELAY_FASTEST);
 	}
 }
