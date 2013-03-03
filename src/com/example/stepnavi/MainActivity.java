@@ -127,25 +127,28 @@ public class MainActivity extends Activity implements SensorEventListener {
 	private float[] mLinear = new float[4];
 	private float[] mLinearWorld = new float[4];
 	private boolean ready = false;
+	private MagicLowPassFilterMulti mFilterGravity = new MagicLowPassFilterMulti(3);
+	private MagicLowPassFilterMulti mFilterMagnetic = new MagicLowPassFilterMulti(3);
+	//private MagicLowPassFilterMulti mFilterLinear = new MagicLowPassFilterMulti(4);
 	
 	@Override
 	public void onSensorChanged(SensorEvent event) {
 		
-		// TODO: Ez pedig kéne
-		
 		/*
+		// TODO: Ez pedig kÃ©ne
 	    if (event.accuracy == SensorManager.SENSOR_STATUS_UNRELIABLE) {
 	        return;
 	    }
 	    */
+		
 
 		//Calculate orientation
 		if ((event.sensor.getType() == Sensor.TYPE_GRAVITY) || (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD))
 		{
 		    if (event.sensor.getType() == Sensor.TYPE_GRAVITY)  
-		    	mGravity = event.values;
+		    	mGravity = mFilterGravity.filter(event.values, 0.2f);
 		    if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) 
-		    	mGeomagnetic =  event.values;
+		    	mGeomagnetic =  mFilterMagnetic.filter(event.values, 0.2f);
 	
 		    if (mGravity != null && mGeomagnetic != null) {
 	
@@ -182,9 +185,9 @@ public class MainActivity extends Activity implements SensorEventListener {
 		// Record
 		if (isRecording == true)
 		{
-			data.add(mLinearWorld[0]);
-			data.add(mLinearWorld[1]);
-			data.add(mLinearWorld[2]);
+			data.add(mLinear[0]);
+			data.add(mLinear[1]);
+			data.add(mLinear[2]);
 			data.add(mAngles[0]);
 			data.add(mAngles[1]);
 			data.add(mAngles[2]);
