@@ -31,9 +31,10 @@ public class MainActivity extends Activity implements SensorEventListener {
 	private boolean isRecording = false;
 	private ToggleButton toggle;
 	private SensorManager sensorManager;
-	private Sensor linear;
+	//private Sensor linear;
 	private Sensor gravity;
 	private Sensor magnetic;
+	private Sensor accelerometer;
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -69,8 +70,8 @@ public class MainActivity extends Activity implements SensorEventListener {
 		List<Sensor>  list = sensorManager.getSensorList(Sensor.TYPE_ALL);
 		//linear = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
 		//orientation = sensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION);
-		//accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-		linear = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
+		accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+		//linear = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
 		gravity = sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
 		magnetic = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
 	}
@@ -123,6 +124,7 @@ public class MainActivity extends Activity implements SensorEventListener {
 	private float[] mRotationMatrixB = new float[16];
 	private float[] mRotationMatrix = new float[16];
 	private float[] mRotationMatrixInv = new float[16];
+	private float[] mAcceleration = new float[3];
 	private float[] mAngles = new float[3];
 	private float[] mLinear = new float[4];
 	private float[] mLinearWorld = new float[4];
@@ -130,16 +132,18 @@ public class MainActivity extends Activity implements SensorEventListener {
 	private MagicLowPassFilterMulti mFilterGravity = new MagicLowPassFilterMulti(3);
 	private MagicLowPassFilterMulti mFilterMagnetic = new MagicLowPassFilterMulti(3);
 	//private MagicLowPassFilterMulti mFilterLinear = new MagicLowPassFilterMulti(4);
+	private MagicLowPassFilterMulti mFilterAcceleration = new MagicLowPassFilterMulti(3);
 	
 	@Override
 	public void onSensorChanged(SensorEvent event) {
 		
-		/*
+		
 		// TODO: Ez pedig kéne
 	    if (event.accuracy == SensorManager.SENSOR_STATUS_UNRELIABLE) {
-	        return;
+	        if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD)
+	        	return;
 	    }
-	    */
+	    
 		
 
 		//Calculate orientation
@@ -168,15 +172,17 @@ public class MainActivity extends Activity implements SensorEventListener {
 		
 		// Calc Moving
 		
-		if (event.sensor.getType() == Sensor.TYPE_LINEAR_ACCELERATION)
+		if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER)
 		{
+			mAcceleration = event.values;
+			
 			if (ready == true)
 			{
-				android.opengl.Matrix.invertM(mRotationMatrixInv, 0, mRotationMatrix, 0);
-				mLinear[0] = event.values[0];
-				mLinear[1] = event.values[1];
-				mLinear[2] = event.values[2];
+				mLinear[0] = mAcceleration[0];
+				mLinear[1] = mAcceleration[1];
+				mLinear[2] = mAcceleration[2];
 				mLinear[3] = 0.0f;
+				android.opengl.Matrix.invertM(mRotationMatrixInv, 0, mRotationMatrix, 0);
 				android.opengl.Matrix.multiplyMV(mLinearWorld, 0, mRotationMatrixInv, 0, mLinear, 0);
 			}
 		}
@@ -207,8 +213,8 @@ public class MainActivity extends Activity implements SensorEventListener {
 		super.onResume();
 		//sensorManager.registerListener(this, orientation, SensorManager.SENSOR_DELAY_FASTEST);
 		//sensorManager.registerListener(this, linear, SensorManager.SENSOR_DELAY_FASTEST);
-		//sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_NORMAL);
-		sensorManager.registerListener(this, linear, SensorManager.SENSOR_DELAY_FASTEST);
+		sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_NORMAL);
+		//sensorManager.registerListener(this, linear, SensorManager.SENSOR_DELAY_FASTEST);
 		sensorManager.registerListener(this, gravity, SensorManager.SENSOR_DELAY_FASTEST);
 		sensorManager.registerListener(this, magnetic, SensorManager.SENSOR_DELAY_FASTEST);
 	}
