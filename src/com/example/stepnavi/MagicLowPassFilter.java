@@ -1,6 +1,5 @@
 package com.example.stepnavi;
 
-import android.util.FloatMath;
 
 public class MagicLowPassFilter {
 

@@ -140,19 +140,22 @@ public class MainActivity extends Activity implements SensorEventListener {
 	//private float[] mLinearWorld = new float[4];
 	//private boolean ready = false;
 	//private MagicLowPassFilterMulti mFilterGravity = new MagicLowPassFilterMulti(3);
-	//private MagicLowPassFilterMulti mFilterMagnetic = new MagicLowPassFilterMulti(3);
 	//private MagicLowPassFilterMulti mFilterLinear = new MagicLowPassFilterMulti(4);
-	//private MagicLowPassFilterMulti mFilterAcceleration = new MagicLowPassFilterMulti(3);
+	private MagicLowPassFilterMulti mFilterMagnetic = new MagicLowPassFilterMulti(3);
+	private MagicLowPassFilterMulti mFilterGyroscope = new MagicLowPassFilterMulti(3);
+	private MagicLowPassFilterMulti mFilterAcceleration = new MagicLowPassFilterMulti(3);
 	
 	@Override
 	public void onSensorChanged(SensorEvent event) {
 		
 		// TODO: Ez pedig kene
 		
+		/*
 	    if (event.accuracy == SensorManager.SENSOR_STATUS_UNRELIABLE) {
 	        //if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD)
 	        	return;
 	    }
+	    */
 	    
 	    
 		//Calculate orientation
@@ -172,13 +175,13 @@ public class MainActivity extends Activity implements SensorEventListener {
 		
 		switch (event.sensor.getType()) {
 		case Sensor.TYPE_ACCELEROMETER:
-			mAcc = event.values;
+			mAcc = mFilterAcceleration.filter(event.values, 0.2f);
 			break;
 		case Sensor.TYPE_GYROSCOPE:
-			mGyro = event.values;
+			mGyro = mFilterGyroscope.filter(event.values, 0.2f);
 			break;
 		case Sensor.TYPE_MAGNETIC_FIELD:
-			mGeo = event.values;
+			mGeo = mFilterMagnetic.filter(event.values, 0.2f);
 			break;
 
 		default:
@@ -218,14 +221,20 @@ public class MainActivity extends Activity implements SensorEventListener {
 	        while (!mFinished) {
 	            try {
 	                if (mActivity != null) {
-	                    // Your method.
-	                    mActivity.runOnUiThread(
-	                    		new Runnable() { 
-	                    	         public void run() { 
-	                    	        	 calculate_AHRS();
-	                    	         } 
-	                    		}
-	                    );
+        	        	 // try to calc new values, as soon as they are available
+        	        	 while (!calculate_AHRS())
+        	        	 {
+        	        		try {
+								Thread.sleep(1, 0);
+							} catch (InterruptedException ignored) {}
+        	        	 }
+        	        	 
+        	        	 mActivity.runOnUiThread(new Runnable() {
+							@Override
+							public void run() {
+								tv.setText("X: " + String.valueOf((int)(mAngles[0]/3.14*180)) + " Y: " + String.valueOf((int)(mAngles[1]/3.14*180)) + " Z: " + String.valueOf((int)(mAngles[2]/3.14*180)));	
+							}
+						});
 	                }
 	                Thread.sleep(PERIOD);
 	            } catch (InterruptedException ignored) {}
@@ -237,15 +246,25 @@ public class MainActivity extends Activity implements SensorEventListener {
 	    }
 	}
 	
-	public void calculate_AHRS()
+	public boolean calculate_AHRS()
 	{
 		float[] angles = null;
+		boolean res = false;
 		if ((mAcc != null) && (mGeo != null) && (mGyro != null))
 		{
 			madgwick.MadgwickAHRSupdate(mGyro[0], mGyro[1], mGyro[2],
 										mAcc[0], mAcc[1], mAcc[2],
 										mGeo[0], mGeo[1], mGeo[2]);
 			angles = madgwick.getEulerAngles();
+			mAngles = angles;
+			
+			// next round waits until all components are new
+			mAcc = null;
+			mGeo = null;
+			mGyro = null;
+			
+			// res
+			res = true;
 		}
 		
 		if (angles!=null)
@@ -263,9 +282,10 @@ public class MainActivity extends Activity implements SensorEventListener {
 				times.add(System.currentTimeMillis()-begin);
 			}
 			
-			tv.setText("X: " + String.valueOf((int)(angles[0]/3.14*180)) + " Y: " + String.valueOf((int)(angles[1]/3.14*180)) + " Z: " + String.valueOf((int)(angles[2]/3.14*180)));
 		}
-	}
+		
+		return res;
+	}	
 
 	@Override
 	protected void onPause() {
