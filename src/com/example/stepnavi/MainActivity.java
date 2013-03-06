@@ -32,9 +32,13 @@ public class MainActivity extends Activity implements SensorEventListener {
 	private ToggleButton toggle;
 	private SensorManager sensorManager;
 	//private Sensor linear;
-	private Sensor gravity;
-	private Sensor magnetic;
-	private Sensor accelerometer;
+	//private Sensor gravity;
+	private Sensor magneto;
+	private Sensor accelero;
+	private Sensor gyro;
+	private static final float SAMPLE_FREQ = 10.0f;
+	private MadgwickAHRS madgwick;
+	private UpdaterThread thread;
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -70,12 +74,17 @@ public class MainActivity extends Activity implements SensorEventListener {
 		List<Sensor>  list = sensorManager.getSensorList(Sensor.TYPE_ALL);
 		//linear = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
 		//orientation = sensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION);
-		accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-		//linear = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
-		gravity = sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
-		magnetic = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+		accelero = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+		gyro = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+		magneto = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+		
+		thread = new UpdaterThread(this);
+		madgwick = new MadgwickAHRS();
+		madgwick.setSampleFreq(SAMPLE_FREQ);
+		thread.start();
 	}
 	
+	public static final int NUM = 3;
 	private void writeData()
 	{
         try {
@@ -87,12 +96,12 @@ public class MainActivity extends Activity implements SensorEventListener {
             	bw.append(times.get(i).toString());
             	bw.append(";");
             	
-            	for (int j=0; j<5; j++)
+            	for (int j=0; j<NUM-1; j++)
             	{
-	            	bw.append(data.get(6*i+j).toString());
+	            	bw.append(data.get(NUM*i+j).toString());
 	            	bw.append(";");
             	}
-            	bw.append(data.get(6*i+5).toString());
+            	bw.append(data.get(NUM*i+NUM-1).toString());
             	bw.newLine();
             }
             
@@ -118,35 +127,36 @@ public class MainActivity extends Activity implements SensorEventListener {
 
 	}
 
-	private float[] mGravity = new float[3];
-	private float[] mGeomagnetic = new float[3];
-	private float[] mRotationMatrixA = new float[16];
-	private float[] mRotationMatrixB = new float[16];
-	private float[] mRotationMatrix = new float[16];
-	private float[] mRotationMatrixInv = new float[16];
-	private float[] mAcceleration = new float[3];
+	private float[] mAcc = null;
+	private float[] mGeo = null;
+	private float[] mGyro = null;
+	//private float[] mRotationMatrixA = new float[16];
+	//private float[] mRotationMatrixB = new float[16];
+	//private float[] mRotationMatrix = new float[16];
+	//private float[] mRotationMatrixInv = new float[16];
+	//private float[] mAcceleration = new float[3];
 	private float[] mAngles = new float[3];
-	private float[] mLinear = new float[4];
-	private float[] mLinearWorld = new float[4];
-	private boolean ready = false;
-	private MagicLowPassFilterMulti mFilterGravity = new MagicLowPassFilterMulti(3);
-	private MagicLowPassFilterMulti mFilterMagnetic = new MagicLowPassFilterMulti(3);
+	//private float[] mLinear = new float[4];
+	//private float[] mLinearWorld = new float[4];
+	//private boolean ready = false;
+	//private MagicLowPassFilterMulti mFilterGravity = new MagicLowPassFilterMulti(3);
+	//private MagicLowPassFilterMulti mFilterMagnetic = new MagicLowPassFilterMulti(3);
 	//private MagicLowPassFilterMulti mFilterLinear = new MagicLowPassFilterMulti(4);
-	private MagicLowPassFilterMulti mFilterAcceleration = new MagicLowPassFilterMulti(3);
+	//private MagicLowPassFilterMulti mFilterAcceleration = new MagicLowPassFilterMulti(3);
 	
 	@Override
 	public void onSensorChanged(SensorEvent event) {
 		
+		// TODO: Ez pedig kene
 		
-		// TODO: Ez pedig kéne
 	    if (event.accuracy == SensorManager.SENSOR_STATUS_UNRELIABLE) {
-	        if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD)
+	        //if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD)
 	        	return;
 	    }
 	    
-		
-
+	    
 		//Calculate orientation
+		/*
 		if ((event.sensor.getType() == Sensor.TYPE_GRAVITY) || (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD))
 		{
 		    if (event.sensor.getType() == Sensor.TYPE_GRAVITY)  
@@ -155,23 +165,28 @@ public class MainActivity extends Activity implements SensorEventListener {
 		    	mGeomagnetic =  mFilterMagnetic.filter(event.values, 0.2f);
 	
 		    if (mGravity != null && mGeomagnetic != null) {
-	
-		        float[] rotationMatrixA = mRotationMatrixA;
-		        if (SensorManager.getRotationMatrix(rotationMatrixA, null, mGravity, mGeomagnetic)) {
-		        	mRotationMatrix = rotationMatrixA;
-		            ready = true;
-		        	float[] rotationMatrixB = mRotationMatrixB;
-		            SensorManager.remapCoordinateSystem(rotationMatrixA,
-		                    SensorManager.AXIS_X, SensorManager.AXIS_Z,
-		                    rotationMatrixB);
-		            SensorManager.getOrientation(rotationMatrixB, mAngles);
-		        }
 		        tv.setText("X: " + String.valueOf((int)(mAngles[0]/3.14*180)) + " Y: " + String.valueOf((int)(mAngles[1]/3.14*180)) + " Z: " + String.valueOf((int)(mAngles[2]/3.14*180)));    
 		    }
 		}
+		*/
+		
+		switch (event.sensor.getType()) {
+		case Sensor.TYPE_ACCELEROMETER:
+			mAcc = event.values;
+			break;
+		case Sensor.TYPE_GYROSCOPE:
+			mGyro = event.values;
+			break;
+		case Sensor.TYPE_MAGNETIC_FIELD:
+			mGeo = event.values;
+			break;
+
+		default:
+			break;
+		}
 		
 		// Calc Moving
-		
+		/*
 		if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER)
 		{
 			mAcceleration = event.values;
@@ -186,19 +201,69 @@ public class MainActivity extends Activity implements SensorEventListener {
 				android.opengl.Matrix.multiplyMV(mLinearWorld, 0, mRotationMatrixInv, 0, mLinear, 0);
 			}
 		}
-		
-		
-		// Record
-		if (isRecording == true)
-		{
-			data.add(mLinear[0]);
-			data.add(mLinear[1]);
-			data.add(mLinear[2]);
-			data.add(mAngles[0]);
-			data.add(mAngles[1]);
-			data.add(mAngles[2]);
+		*/
+	}
+	
+	class UpdaterThread extends Thread {
+	    /** Frequency / sleep duration in milliseconds */
+	    public static final int PERIOD = (int)(1000.0f/SAMPLE_FREQ);      
+	    private volatile boolean mFinished;     
+	    private Activity mActivity;
 
-			times.add(System.currentTimeMillis()-begin);
+	    public UpdaterThread(Activity activity) {
+	        mActivity = activity;
+	    }
+
+	    public void run() {
+	        while (!mFinished) {
+	            try {
+	                if (mActivity != null) {
+	                    // Your method.
+	                    mActivity.runOnUiThread(
+	                    		new Runnable() { 
+	                    	         public void run() { 
+	                    	        	 calculate_AHRS();
+	                    	         } 
+	                    		}
+	                    );
+	                }
+	                Thread.sleep(PERIOD);
+	            } catch (InterruptedException ignored) {}
+	        }
+	    }
+
+	    public void quit() {
+	        mFinished = true;
+	    }
+	}
+	
+	public void calculate_AHRS()
+	{
+		float[] angles = null;
+		if ((mAcc != null) && (mGeo != null) && (mGyro != null))
+		{
+			madgwick.MadgwickAHRSupdate(mGyro[0], mGyro[1], mGyro[2],
+										mAcc[0], mAcc[1], mAcc[2],
+										mGeo[0], mGeo[1], mGeo[2]);
+			angles = madgwick.getEulerAngles();
+		}
+		
+		if (angles!=null)
+		{
+			// Record
+			if (isRecording == true)
+			{
+				//data.add(mLinear[0]);
+				//data.add(mLinear[1]);
+				//data.add(mLinear[2]);
+				data.add(mAngles[0]);
+				data.add(mAngles[1]);
+				data.add(mAngles[2]);
+	
+				times.add(System.currentTimeMillis()-begin);
+			}
+			
+			tv.setText("X: " + String.valueOf((int)(angles[0]/3.14*180)) + " Y: " + String.valueOf((int)(angles[1]/3.14*180)) + " Z: " + String.valueOf((int)(angles[2]/3.14*180)));
 		}
 	}
 
@@ -213,9 +278,9 @@ public class MainActivity extends Activity implements SensorEventListener {
 		super.onResume();
 		//sensorManager.registerListener(this, orientation, SensorManager.SENSOR_DELAY_FASTEST);
 		//sensorManager.registerListener(this, linear, SensorManager.SENSOR_DELAY_FASTEST);
-		sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_NORMAL);
+		sensorManager.registerListener(this, accelero, SensorManager.SENSOR_DELAY_FASTEST);
 		//sensorManager.registerListener(this, linear, SensorManager.SENSOR_DELAY_FASTEST);
-		sensorManager.registerListener(this, gravity, SensorManager.SENSOR_DELAY_FASTEST);
-		sensorManager.registerListener(this, magnetic, SensorManager.SENSOR_DELAY_FASTEST);
+		sensorManager.registerListener(this, gyro, SensorManager.SENSOR_DELAY_FASTEST);
+		sensorManager.registerListener(this, magneto, SensorManager.SENSOR_DELAY_FASTEST);
 	}
 }

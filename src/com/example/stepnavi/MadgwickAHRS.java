@@ -10,7 +10,7 @@ package com.example.stepnavi;
 public class MadgwickAHRS {
 
 	// freq
-	private final float sampleFreq = 512.0f;
+	private volatile float sampleFreq;
 	// algorithm gain
 	private volatile float beta;
 	// quaternion of sensor frame relative to auxiliary frame
@@ -18,6 +18,7 @@ public class MadgwickAHRS {
 
 	public MadgwickAHRS() 
 	{
+		sampleFreq = 20.0f;
 		beta = 0.1f;
 		quaternion = new float[4];
 		quaternion[0] = 1.0f;
@@ -203,6 +204,25 @@ public class MadgwickAHRS {
 	public float[] getQuaternion() {
 		return quaternion;
 	}
+
+	public float getSampleFreq() {
+		return sampleFreq;
+	}
+
+	public void setSampleFreq(float sampleFreq) {
+		this.sampleFreq = sampleFreq;
+	}	
 	
-	
+	public float[] getEulerAngles()
+	{
+		float[] angles = new float[3];
+		
+		angles[0] = (float) Math.atan2(2*quaternion[1]*quaternion[2]-2*quaternion[0]*quaternion[3],
+				2*quaternion[0]*quaternion[0] + 2*quaternion[1]*quaternion[1] - 1);
+		angles[1] = (float) (-1 * Math.asin(2*quaternion[1]*quaternion[3] + 2*quaternion[0]*quaternion[2]));
+		angles[2] = (float) Math.atan2(2*quaternion[2]*quaternion[3]-2*quaternion[0]*quaternion[1],
+				2*quaternion[0]*quaternion[0] + 2*quaternion[3]*quaternion[3] - 1);		
+		
+		return angles;
+	}
 }
