@@ -19,7 +19,7 @@ public class MadgwickAHRS {
 	public MadgwickAHRS() 
 	{
 		sampleFreq = 20.0f;
-		beta = 0.1f;
+		beta = 0.9f;
 		quaternion = new float[4];
 		quaternion[0] = 1.0f;
 		quaternion[1] = 0.0f;
@@ -224,5 +224,61 @@ public class MadgwickAHRS {
 				2*quaternion[0]*quaternion[0] + 2*quaternion[3]*quaternion[3] - 1);		
 		
 		return angles;
+	}
+	
+	public float[] getMatrix3()
+	{
+		float[] matrix3 = new float[9];
+		
+		float a = quaternion[0];
+		float b = quaternion[1];
+		float c = quaternion[2];
+		float d = quaternion[3];
+		
+		matrix3[0] = a*a + b*b - c*c - d*d;
+		matrix3[1] = 2*b*c + 2*a*d;
+		matrix3[2] = 2*b*d - 2*a*c;
+		
+		matrix3[3] = 2*b*c - 2*a*d;
+		matrix3[4] = a*a - b*b + c*c - d*d;
+		matrix3[5] = 2*c*d + 2*a*b;
+		
+		matrix3[6] = 2*b*d + 2*a*c;
+		matrix3[7] = 2*c*d - 2*a*b;
+		matrix3[8] = a*a - b*b - c*c + d*d;
+		
+		return matrix3;
+	}
+	
+	public float[] getMatrix4()
+	{
+		float[] matrix4 = new float[16];
+		
+		float a = quaternion[0];
+		float b = quaternion[1];
+		float c = quaternion[2];
+		float d = quaternion[3];
+		
+		matrix4[0] = a*a + b*b - c*c - d*d;
+		matrix4[1] = 2*b*c + 2*a*d;
+		matrix4[2] = 2*b*d - 2*a*c;
+		matrix4[3] = 0.0f;
+		
+		matrix4[4] = 2*b*c - 2*a*d;
+		matrix4[5] = a*a - b*b + c*c - d*d;
+		matrix4[6] = 2*c*d + 2*a*b;
+		matrix4[7] = 0.0f;
+		
+		matrix4[8] = 2*b*d + 2*a*c;
+		matrix4[9] = 2*c*d - 2*a*b;
+		matrix4[10] = a*a - b*b - c*c + d*d;
+		matrix4[11] = 0.0f;
+
+		matrix4[12] = 0.0f;
+		matrix4[13] = 0.0f;
+		matrix4[14] = 0.0f;
+		matrix4[15] = 1.0f;
+		
+		return matrix4;		
 	}
 }
