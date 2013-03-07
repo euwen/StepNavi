@@ -1,25 +1,25 @@
-package com.example.stepnavi;
+package com.example.stepnavi.filters;
 
 import java.util.ArrayList;
 
-public class MagicLowPassFilterMulti {
+public class ValidDataFilterMulti {
 
-	private ArrayList<MagicLowPassFilter> filters;
+	private ArrayList<ValidDataFilter> filters;
 	
-	public MagicLowPassFilterMulti(int dimension)
+	public ValidDataFilterMulti(int dimension)
 	{
 		if (dimension < 1) return;
 		
-		filters = new ArrayList<MagicLowPassFilter>();
+		filters = new ArrayList<ValidDataFilter>();
 		for (int i=0; i<dimension; i++)
 		{
-			filters.add(new MagicLowPassFilter());
+			filters.add(new ValidDataFilter());
 		}
 	}
 	
 	public void reset()
 	{
-		for (MagicLowPassFilter filter : filters) {
+		for (ValidDataFilter filter : filters) {
 			filter.reset();
 		}
 	}

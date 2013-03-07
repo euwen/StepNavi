@@ -5,6 +5,9 @@ import java.io.File;
 import java.io.FileWriter;
 import java.util.ArrayList;
 
+import com.example.stepnavi.filters.HighPassFilterMulti;
+import com.example.stepnavi.filters.ValidDataFilterMulti;
+
 import android.app.Activity;
 import android.content.Context;
 import android.hardware.Sensor;
@@ -133,10 +136,13 @@ public class MainActivity extends Activity implements SensorEventListener {
 	private float[] mLinear = new float[4];
 	private float[] mLinearWorld = new float[4];
 	
-	private MagicLowPassFilterMulti mFilterMagnetic = new MagicLowPassFilterMulti(3);
-	private MagicLowPassFilterMulti mFilterGyroscope = new MagicLowPassFilterMulti(3);
-	private MagicLowPassFilterMulti mFilterAcceleration = new MagicLowPassFilterMulti(3);
-	private MagicLowPassFilterMulti mFilterLinear = new MagicLowPassFilterMulti(3);
+	private ValidDataFilterMulti mFilterMagnetic = new ValidDataFilterMulti(3);
+	private ValidDataFilterMulti mFilterGyroscope = new ValidDataFilterMulti(3);
+	private ValidDataFilterMulti mFilterAcceleration = new ValidDataFilterMulti(3);
+	//private ValidDataFilterMulti mFilterLinear = new ValidDataFilterMulti(3);
+	
+	private int movingAvg = 0;
+	private HighPassFilterMulti mFilterLinearHighPass = new HighPassFilterMulti(3);
 	
 	@Override
 	public void onSensorChanged(SensorEvent event) {
@@ -152,8 +158,21 @@ public class MainActivity extends Activity implements SensorEventListener {
 		
 		switch (event.sensor.getType()) {
 		case Sensor.TYPE_ACCELEROMETER:
+			// save acceleration as mAcc
 			mAcc = mFilterAcceleration.filter(event.values, 0.2f);
-			mLin = mFilterLinear.filter(event.values, 0.2f);
+			
+			// if mLin was reset by thread
+			if (mLin == null)
+			{
+				mLin = new float[3];
+				movingAvg = 0;
+			}
+			// calculate moving average as mLin
+			mLin[0] = (movingAvg/(movingAvg+1)) *mLin[0] + (1/(movingAvg+1))*mAcc[0];
+			mLin[1] = (movingAvg/(movingAvg+1)) *mLin[1] + (1/(movingAvg+1))*mAcc[1];
+			mLin[2] = (movingAvg/(movingAvg+1)) *mLin[2] + (1/(movingAvg+1))*mAcc[2];
+			movingAvg++;
+			
 			break;
 		case Sensor.TYPE_GYROSCOPE:
 			mGyro = mFilterGyroscope.filter(event.values, 0.2f);
@@ -182,6 +201,9 @@ public class MainActivity extends Activity implements SensorEventListener {
 	    }
 
 	    public void run() {
+	    	// An effort to make timing more precise
+	    	int sleepCorrection = 0;
+	    	// Do the work!
 	        while (!mFinished) {
 	            try {
 	                if (mActivity != null) {
@@ -189,18 +211,23 @@ public class MainActivity extends Activity implements SensorEventListener {
         	        	 while (!calculate_AHRS())
         	        	 {
         	        		try {
+        	        			sleepCorrection++;
 								Thread.sleep(1, 0);
 							} catch (InterruptedException ignored) {}
         	        	 }
-        	        	 
+        	        	 // show values to user
         	        	 mActivity.runOnUiThread(new Runnable() {
 							@Override
 							public void run() {
-								tv.setText("X: " + String.valueOf((int)(mAngles[0]/3.14*180)) + " Y: " + String.valueOf((int)(mAngles[1]/3.14*180)) + " Z: " + String.valueOf((int)(mAngles[2]/3.14*180)));	
+								tv.setText("X: " + String.valueOf((int)(mAngles[0]/3.14*180)) + 
+										  " Y: " + String.valueOf((int)(mAngles[1]/3.14*180)) + 
+										  " Z: " + String.valueOf((int)(mAngles[2]/3.14*180)));	
 							}
 						});
 	                }
-	                Thread.sleep(PERIOD);
+	                // Sleep (corrected time)
+	                Thread.sleep(Math.max(PERIOD - sleepCorrection,0));
+	                sleepCorrection = 0;
 	            } catch (InterruptedException ignored) {}
 	        }
 	    }
@@ -236,6 +263,8 @@ public class MainActivity extends Activity implements SensorEventListener {
 		{
 			if (res == true)
 			{
+				mLin = mFilterLinearHighPass.filter(mLin, 0.05f);
+				
 				mLinear[0] = mLin[0];
 				mLinear[1] = mLin[1];
 				mLinear[2] = mLin[2];
@@ -246,6 +275,7 @@ public class MainActivity extends Activity implements SensorEventListener {
 				android.opengl.Matrix.multiplyMV(mLinearWorld, 0, rotMatrix, 0, mLinear, 0);
 			}
 			
+			// reset mLin for moving average reset
 			mLin = null;
 		}
 		

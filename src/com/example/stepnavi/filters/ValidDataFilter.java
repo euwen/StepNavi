@@ -1,7 +1,7 @@
-package com.example.stepnavi;
+package com.example.stepnavi.filters;
 
 
-public class MagicLowPassFilter {
+public class ValidDataFilter {
 
 	private float current = 0.0f;
 	private float lastInput = 0.0f;
