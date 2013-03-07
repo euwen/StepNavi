@@ -127,10 +127,11 @@ public class MainActivity extends Activity implements SensorEventListener {
 
 	}
 
+	public Object sync = new Object();
 	private float[] mAcc = null;
 	private float[] mGeo = null;
 	private float[] mGyro = null;
-	private float[] mLin = null;
+	private float[] mLin = new float[3];
 	
 	private float[] mAngles = new float[3];
 	private float[] mLinear = new float[4];
@@ -139,17 +140,15 @@ public class MainActivity extends Activity implements SensorEventListener {
 	private ValidDataFilterMulti mFilterMagnetic = new ValidDataFilterMulti(3);
 	private ValidDataFilterMulti mFilterGyroscope = new ValidDataFilterMulti(3);
 	private ValidDataFilterMulti mFilterAcceleration = new ValidDataFilterMulti(3);
-	//private ValidDataFilterMulti mFilterLinear = new ValidDataFilterMulti(3);
+	private ValidDataFilterMulti mFilterLinear = new ValidDataFilterMulti(3);
 	
-	private int movingAvg = 0;
+	private float movingAvg = 0;
 	private HighPassFilterMulti mFilterLinearHighPass = new HighPassFilterMulti(3);
 	
 	@Override
 	public void onSensorChanged(SensorEvent event) {
 		
 		// TODO: Ez pedig kene
-		
-		
 	    if (event.accuracy == SensorManager.SENSOR_STATUS_UNRELIABLE) {
 	        //if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD)
 	        	return;
@@ -159,19 +158,17 @@ public class MainActivity extends Activity implements SensorEventListener {
 		switch (event.sensor.getType()) {
 		case Sensor.TYPE_ACCELEROMETER:
 			// save acceleration as mAcc
-			mAcc = mFilterAcceleration.filter(event.values, 0.2f);
-			
-			// if mLin was reset by thread
-			if (mLin == null)
+			synchronized (sync)
 			{
-				mLin = new float[3];
-				movingAvg = 0;
+				mAcc = mFilterAcceleration.filter(event.values, 0.2f);
+				//mLin = mFilterLinear.filter(event.values, 0.2f);
+				
+				// calculate moving average as mLin
+				mLin[0] = (movingAvg/(movingAvg+1)) *mLin[0] + (1/(movingAvg+1))*mAcc[0];
+				mLin[1] = (movingAvg/(movingAvg+1)) *mLin[1] + (1/(movingAvg+1))*mAcc[1];
+				mLin[2] = (movingAvg/(movingAvg+1)) *mLin[2] + (1/(movingAvg+1))*mAcc[2];
+				movingAvg++;	
 			}
-			// calculate moving average as mLin
-			mLin[0] = (movingAvg/(movingAvg+1)) *mLin[0] + (1/(movingAvg+1))*mAcc[0];
-			mLin[1] = (movingAvg/(movingAvg+1)) *mLin[1] + (1/(movingAvg+1))*mAcc[1];
-			mLin[2] = (movingAvg/(movingAvg+1)) *mLin[2] + (1/(movingAvg+1))*mAcc[2];
-			movingAvg++;
 			
 			break;
 		case Sensor.TYPE_GYROSCOPE:
@@ -241,60 +238,52 @@ public class MainActivity extends Activity implements SensorEventListener {
 	{
 		float[] angles = null;
 		boolean res = false;
-		if ((mAcc != null) && (mGeo != null) && (mGyro != null))
+		synchronized (sync)
 		{
-			madgwick.MadgwickAHRSupdate(mGyro[0], mGyro[1], mGyro[2],
-										mAcc[0], mAcc[1], mAcc[2],
-										mGeo[0], mGeo[1], mGeo[2]);
-			angles = madgwick.getEulerAngles();
-			mAngles = angles;
-			
-			// next round waits until all components are new
-			mAcc = null;
-			mGeo = null;
-			mGyro = null;
-			
-			// res
-			res = true;
-		}
-		
-		// Calc Moving
-		if (mLin != null)
-		{
-			if (res == true)
+			if ((mAcc != null) && (mGeo != null) && (mGyro != null) && (mLin != null))
 			{
-				mLin = mFilterLinearHighPass.filter(mLin, 0.05f);
+				madgwick.MadgwickAHRSupdate(mGyro[0], mGyro[1], mGyro[2],
+											mAcc[0], mAcc[1], mAcc[2],
+											mGeo[0], mGeo[1], mGeo[2]);
+				angles = madgwick.getEulerAngles();
+				mAngles = angles;
 				
+				// res
+				res = true;
+			
+				// Calc Moving
+				mLin = mFilterLinearHighPass.filter(mLin, 0.1f);
+					
 				mLinear[0] = mLin[0];
 				mLinear[1] = mLin[1];
 				mLinear[2] = mLin[2];
 				mLinear[3] = 0.0f;
 				
 				float[] rotMatrix = madgwick.getMatrix4(); 
-
-				android.opengl.Matrix.multiplyMV(mLinearWorld, 0, rotMatrix, 0, mLinear, 0);
-			}
-			
-			// reset mLin for moving average reset
-			mLin = null;
-		}
-		
-		if (angles!=null)
-		{
-			// Record
-			if (isRecording == true)
-			{
-				data.add(mLinearWorld[0]);
-				data.add(mLinearWorld[1]);
-				data.add(mLinearWorld[2]);
-				data.add(mAngles[0]);
-				data.add(mAngles[1]);
-				data.add(mAngles[2]);
 	
-				times.add(System.currentTimeMillis()-begin);
+				android.opengl.Matrix.multiplyMV(mLinearWorld, 0, rotMatrix, 0, mLinear, 0);
+			
+				// Record
+				if (isRecording == true)
+				{
+					data.add(mLinearWorld[0]);
+					data.add(mLinearWorld[1]);
+					data.add(mLinearWorld[2]);
+					data.add(mAngles[0]);
+					data.add(mAngles[1]);
+					data.add(mAngles[2]);
+		
+					times.add(System.currentTimeMillis()-begin);
+				}
+				
+				// next round waits until all components are new
+				mAcc = null;
+				mGeo = null;
+				mGyro = null;
+				mLin = new float[3];
+				movingAvg = 0;
 			}
 		}
-		
 		return res;
 	}	
 
