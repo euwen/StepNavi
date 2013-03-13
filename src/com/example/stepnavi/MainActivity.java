@@ -3,6 +3,7 @@ package com.example.stepnavi;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 
 import com.example.stepnavi.filters.HighPassFilterMulti;
@@ -11,6 +12,7 @@ import com.example.stepnavi.filters.ValidDataFilterMulti;
 
 import android.app.Activity;
 import android.content.Context;
+import android.graphics.Typeface;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -26,7 +28,7 @@ import android.widget.ToggleButton;
 
 public class MainActivity extends Activity implements SensorEventListener {
 
-	private TextView tv1, tv2;
+	private TextView tv1, tv2, tv3;
 	
 	private long begin;
 	private ArrayList<Long> times;
@@ -52,6 +54,11 @@ public class MainActivity extends Activity implements SensorEventListener {
 		
 		tv1 = (TextView) findViewById(R.id.textView1);
 		tv2 = (TextView) findViewById(R.id.textView2);
+		tv3 = (TextView) findViewById(R.id.textView3);
+		
+		tv1.setTypeface(Typeface.MONOSPACE);
+		tv2.setTypeface(Typeface.MONOSPACE);
+		tv3.setTypeface(Typeface.MONOSPACE);
 		
 		toggle = (ToggleButton) findViewById(R.id.toggleButton1);
 		toggle.setOnCheckedChangeListener(new OnCheckedChangeListener() {
@@ -145,7 +152,7 @@ public class MainActivity extends Activity implements SensorEventListener {
 	private ValidDataFilterMulti mFilterLinear = new ValidDataFilterMulti(3);
 	
 	private double movingAvg = 0;
-	private HighPassFilterMulti mFilterLinearHighPass = new HighPassFilterMulti(3);
+	private LowPassFilterMulti mFilterLinearLowPass = new LowPassFilterMulti(3);
 	private LowPassFilterMulti mFilterAcceleroLowPass = new LowPassFilterMulti(3);
 	private LowPassFilterMulti mFilterMagneticLowPass = new LowPassFilterMulti(3);
 	private LowPassFilterMulti mFilterGyroLowPass = new LowPassFilterMulti(3);
@@ -220,25 +227,30 @@ public class MainActivity extends Activity implements SensorEventListener {
 	            try {
 	                if (mActivity != null) {
         	        	 // try to calc new values, as soon as they are available
-        	        	 while (!calculate_AHRS())
+	                	 while (!calculate_AHRS())
         	        	 {
         	        		try {
         	        			sleepCorrection++;
 								Thread.sleep(0, 1000);
 							} catch (InterruptedException ignored) {}
         	        	 }
-        	        	 // show values to user
-        	        	 mActivity.runOnUiThread(new Runnable() {
-							@Override
-							public void run() {
-								tv1.setText("X: " + String.valueOf((int)(mAngles[0]/3.14*180)) + 
-										  " Y: " + String.valueOf((int)(mAngles[1]/3.14*180)) + 
-										  " Z: " + String.valueOf((int)(mAngles[2]/3.14*180)));	
-								tv2.setText("X: " + String.valueOf((int)(mLinearWorld[0]*100)) + 
-										  " Y: " + String.valueOf((int)(mLinearWorld[1]*100)) + 
-										  " Z: " + String.valueOf((int)(mLinearWorld[2]*100)));	
-							}
-						});
+	                	// show values to user
+	       	        	 mActivity.runOnUiThread(new Runnable() {
+								@Override
+								public void run() {
+									tv1.setText("X:  " + (mAngles[0]<0?"":" ") + new DecimalFormat("000").format(mAngles[0]/3.14*180) + 
+											  " Y:  " + (mAngles[1]<0?"":" ") + new DecimalFormat("000").format(mAngles[1]/3.14*180) + 
+											  " Z:  " + (mAngles[2]<0?"":" ") + new DecimalFormat("000").format(mAngles[2]/3.14*180));	
+									tv2.setText("X:" + (mLinearWorld[0]<0?"":" ") + new DecimalFormat("0.000").format(mLinearWorld[0]) + 
+											  " Y:" + (mLinearWorld[1]<0?"":" ") + new DecimalFormat("0.000").format(mLinearWorld[1]) + 
+											  " Z:" + (mLinearWorld[2]<0?"":" ") + new DecimalFormat("0.000").format(mLinearWorld[2]));	
+									/*
+									tv3.setText("X:" + (mAcc[0]<0?"":" ") + new DecimalFormat("0.000").format(mAcc[0]) + 
+											  " Y:" + (mAcc[1]<0?"":" ") + new DecimalFormat("0.000").format(mAcc[1]) + 
+											  " Z:" + (mAcc[2]<0?"":" ") + new DecimalFormat("0.000").format(mAcc[2]));	
+											  */
+								}
+							});
 	                }
 	                // Sleep (corrected time)
 	                Thread.sleep(Math.max(PERIOD - sleepCorrection,0));
@@ -279,7 +291,9 @@ public class MainActivity extends Activity implements SensorEventListener {
 				//mLinear[1] = mLin[1];
 				//mLinear[2] = mLin[2];
 				//mLinear[3] = 0.0f;
-							
+						
+				mLin = mFilterLinearLowPass.filter(mLin, 2.0);
+				
 				double[] rotMatrix = madgwick.getMatrix4(); 
 	
 				// float castings
