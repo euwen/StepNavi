@@ -24,20 +24,20 @@ public class HighPassFilterMulti {
 		}
 	}
 	
-	public float[] getCurrentOutputs()
+	public double[] getCurrentOutputs()
 	{
 		int n = filters.size();
-		float[] result = new float[n];
+		double[] result = new double[n];
 		for (int i=0; i<n; i++){
 			result[i] = filters.get(i).getCurrentOutput();
 		}
 		return result;
 	}
 	
-	public float[] filter(float[] values, float magic)
+	public double[] filter(double[] values, double magic)
 	{
 		int n = filters.size();
-		float[] result = new float[n];
+		double[] result = new double[n];
 		for (int i=0; i<n; i++){
 			result[i] = filters.get(i).filter(values[i], magic);
 		}

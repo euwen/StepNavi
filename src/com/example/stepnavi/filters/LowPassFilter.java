@@ -2,19 +2,19 @@ package com.example.stepnavi.filters;
 
 public class LowPassFilter {
 
-	private float current = 0.0f;
+	private double current = 0.0f;
 	
 	public void reset()
 	{
 		current = 0.0f;
 	}
 	
-	public float getCurrentOutput()
+	public double getCurrentOutput()
 	{
 		return current;
 	}
 	
-	public float filter(float newValue, float magic)
+	public double filter(double newValue, double magic)
 	{
 		current += (newValue - current) / magic;	
 		return current;

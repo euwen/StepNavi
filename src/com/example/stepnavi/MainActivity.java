@@ -6,6 +6,7 @@ import java.io.FileWriter;
 import java.util.ArrayList;
 
 import com.example.stepnavi.filters.HighPassFilterMulti;
+import com.example.stepnavi.filters.LowPassFilterMulti;
 import com.example.stepnavi.filters.ValidDataFilterMulti;
 
 import android.app.Activity;
@@ -25,11 +26,11 @@ import android.widget.ToggleButton;
 
 public class MainActivity extends Activity implements SensorEventListener {
 
-	private TextView tv;
+	private TextView tv1, tv2;
 	
 	private long begin;
 	private ArrayList<Long> times;
-	private ArrayList<Float> data;
+	private ArrayList<Double> data;
 	private boolean isRecording = false;
 	private ToggleButton toggle;
 	private SensorManager sensorManager;
@@ -37,7 +38,7 @@ public class MainActivity extends Activity implements SensorEventListener {
 	private Sensor magneto;
 	private Sensor accelero;
 	private Sensor gyro;
-	private static final float SAMPLE_FREQ = 40.0f;
+	private static final double SAMPLE_FREQ = 25.0f;
 	private MadgwickAHRS madgwick;
 	private UpdaterThread thread;
 	
@@ -47,9 +48,10 @@ public class MainActivity extends Activity implements SensorEventListener {
 		setContentView(R.layout.activity_main);
 		
 		times = new ArrayList<Long>();
-		data = new ArrayList<Float>();
+		data = new ArrayList<Double>();
 		
-		tv = (TextView) findViewById(R.id.textView1);
+		tv1 = (TextView) findViewById(R.id.textView1);
+		tv2 = (TextView) findViewById(R.id.textView2);
 		
 		toggle = (ToggleButton) findViewById(R.id.toggleButton1);
 		toggle.setOnCheckedChangeListener(new OnCheckedChangeListener() {
@@ -128,40 +130,45 @@ public class MainActivity extends Activity implements SensorEventListener {
 	}
 
 	public Object sync = new Object();
-	private float[] mAcc = null;
-	private float[] mGeo = null;
-	private float[] mGyro = null;
-	private float[] mLin = new float[3];
+	private double[] mAcc = null;
+	private double[] mGeo = null;
+	private double[] mGyro = null;
+	private double[] mLin = new double[3];
 	
-	private float[] mAngles = new float[3];
-	private float[] mLinear = new float[4];
-	private float[] mLinearWorld = new float[4];
+	private double[] mAngles = new double[3];
+	private double[] mLinear = new double[4];
+	private double[] mLinearWorld = new double[4];
 	
 	private ValidDataFilterMulti mFilterMagnetic = new ValidDataFilterMulti(3);
 	private ValidDataFilterMulti mFilterGyroscope = new ValidDataFilterMulti(3);
 	private ValidDataFilterMulti mFilterAcceleration = new ValidDataFilterMulti(3);
 	private ValidDataFilterMulti mFilterLinear = new ValidDataFilterMulti(3);
 	
-	private float movingAvg = 0;
+	private double movingAvg = 0;
 	private HighPassFilterMulti mFilterLinearHighPass = new HighPassFilterMulti(3);
+	private LowPassFilterMulti mFilterAcceleroLowPass = new LowPassFilterMulti(3);
+	private LowPassFilterMulti mFilterMagneticLowPass = new LowPassFilterMulti(3);
+	private LowPassFilterMulti mFilterGyroLowPass = new LowPassFilterMulti(3);
 	
 	@Override
 	public void onSensorChanged(SensorEvent event) {
 		
-		// TODO: Ez pedig kene
 	    if (event.accuracy == SensorManager.SENSOR_STATUS_UNRELIABLE) {
-	        //if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD)
 	        	return;
 	    }
 	    
+	    double[] values = new double[3];
+	    values[0] = event.values[0];
+	    values[1] = event.values[1];
+	    values[2] = event.values[2];
 		
 		switch (event.sensor.getType()) {
 		case Sensor.TYPE_ACCELEROMETER:
 			// save acceleration as mAcc
 			synchronized (sync)
 			{
-				mAcc = mFilterAcceleration.filter(event.values, 0.2f);
-				//mLin = mFilterLinear.filter(event.values, 0.2f);
+				mAcc = mFilterAcceleration.filter(values, 0.2);
+				mAcc = mFilterAcceleroLowPass.filter(values, 5.0);
 				
 				// calculate moving average as mLin
 				mLin[0] = (movingAvg/(movingAvg+1)) *mLin[0] + (1/(movingAvg+1))*mAcc[0];
@@ -172,16 +179,24 @@ public class MainActivity extends Activity implements SensorEventListener {
 			
 			break;
 		case Sensor.TYPE_GYROSCOPE:
-			mGyro = mFilterGyroscope.filter(event.values, 0.2f);
+			synchronized (sync)
+			{
+				if (mGyro == null)
+				{
+					mGyro = mFilterGyroscope.filter(values, 0.2f);
+					//mGyro = mFilterGyroLowPass.filter(mGyro, 3.0f);
+				}
+			}
 			break;
 		case Sensor.TYPE_MAGNETIC_FIELD:
-			mGeo = mFilterMagnetic.filter(event.values, 0.2f);
+			synchronized (sync)
+			{
+				if (mGeo == null){
+					mGeo = mFilterMagnetic.filter(values, 0.2f);
+					//mGeo = mFilterMagneticLowPass.filter(mGeo, 5.0f);
+				}
+			}
 			break;
-		/*
-		case Sensor.TYPE_LINEAR_ACCELERATION:
-			mLin = mFilterLinear.filter(event.values, 0.2f);
-			break;
-		*/
 		default:
 			break;
 		}
@@ -209,16 +224,19 @@ public class MainActivity extends Activity implements SensorEventListener {
         	        	 {
         	        		try {
         	        			sleepCorrection++;
-								Thread.sleep(1, 0);
+								Thread.sleep(0, 1000);
 							} catch (InterruptedException ignored) {}
         	        	 }
         	        	 // show values to user
         	        	 mActivity.runOnUiThread(new Runnable() {
 							@Override
 							public void run() {
-								tv.setText("X: " + String.valueOf((int)(mAngles[0]/3.14*180)) + 
+								tv1.setText("X: " + String.valueOf((int)(mAngles[0]/3.14*180)) + 
 										  " Y: " + String.valueOf((int)(mAngles[1]/3.14*180)) + 
 										  " Z: " + String.valueOf((int)(mAngles[2]/3.14*180)));	
+								tv2.setText("X: " + String.valueOf((int)(mLinearWorld[0]*100)) + 
+										  " Y: " + String.valueOf((int)(mLinearWorld[1]*100)) + 
+										  " Z: " + String.valueOf((int)(mLinearWorld[2]*100)));	
 							}
 						});
 	                }
@@ -236,7 +254,7 @@ public class MainActivity extends Activity implements SensorEventListener {
 	
 	public boolean calculate_AHRS()
 	{
-		float[] angles = null;
+		double[] angles = null;
 		boolean res = false;
 		synchronized (sync)
 		{
@@ -252,17 +270,43 @@ public class MainActivity extends Activity implements SensorEventListener {
 				res = true;
 			
 				// Calc Moving
-				mLin = mFilterLinearHighPass.filter(mLin, 0.1f);
-					
-				mLinear[0] = mLin[0];
-				mLinear[1] = mLin[1];
-				mLinear[2] = mLin[2];
-				mLinear[3] = 0.0f;
 				
-				float[] rotMatrix = madgwick.getMatrix4(); 
+				//mLin = mFilterLinearLowPass.filter(mLin, 2.0f);
+				//mLin = mFilterLinearHighPass.filter(mLin, 0.1f);	
+				//mLin = mFilterLinearLowPass2.filter(mLin, 10.0f);
+				
+				//mLinear[0] = mLin[0];
+				//mLinear[1] = mLin[1];
+				//mLinear[2] = mLin[2];
+				//mLinear[3] = 0.0f;
+							
+				double[] rotMatrix = madgwick.getMatrix4(); 
 	
-				android.opengl.Matrix.multiplyMV(mLinearWorld, 0, rotMatrix, 0, mLinear, 0);
-			
+				// float castings
+				float[] tlin = new float[4];
+				tlin[0] = (float) mLin[0];
+				tlin[1] = (float) mLin[1];
+				tlin[2] = (float) mLin[2];
+				tlin[3] = 0.0f;
+				float[] tWorld = new float[4];
+				float[] rot = new float[16];
+				for (int i=0; i<16; i++)
+				{
+					rot[i] = (float) rotMatrix[i];
+				}
+				
+				// rotate!
+				android.opengl.Matrix.multiplyMV(tWorld, 0, rot, 0, tlin, 0);
+				
+				// back casting
+				for (int i=0; i<4; i++)
+				{
+					mLinearWorld[i] = tWorld[i];
+				}
+				
+				
+				//mLinearWorld = madgwick.rotateVector3(mLin);
+				
 				// Record
 				if (isRecording == true)
 				{
@@ -280,7 +324,7 @@ public class MainActivity extends Activity implements SensorEventListener {
 				mAcc = null;
 				mGeo = null;
 				mGyro = null;
-				mLin = new float[3];
+				mLin = new double[3];
 				movingAvg = 0;
 			}
 		}
