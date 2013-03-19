@@ -6,10 +6,6 @@ import java.io.FileWriter;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 
-import com.example.stepnavi.filters.HighPassFilterMulti;
-import com.example.stepnavi.filters.LowPassFilterMulti;
-import com.example.stepnavi.filters.ValidDataFilterMulti;
-
 import android.app.Activity;
 import android.content.Context;
 import android.graphics.Typeface;
@@ -26,6 +22,10 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
 
+import com.example.stepnavi.filters.ADKFilter;
+import com.example.stepnavi.filters.LowPassFilterMulti;
+import com.example.stepnavi.filters.ValidDataFilterMulti;
+
 public class MainActivity extends Activity implements SensorEventListener {
 
 	private TextView tv1, tv2, tv3;
@@ -33,14 +33,20 @@ public class MainActivity extends Activity implements SensorEventListener {
 	private long begin;
 	private ArrayList<Long> times;
 	private ArrayList<Double> data;
+	private ArrayList<Double> velDataX;
+	private ArrayList<Double> velDataXsm;
+	private ArrayList<Double> velDataY;
+	private ArrayList<Double> velDataYsm;
+	private ArrayList<Double> velDataZ;
+	private ArrayList<Double> velDataZsm;
 	private boolean isRecording = false;
 	private ToggleButton toggle;
 	private SensorManager sensorManager;
-	//private Sensor linear;
 	private Sensor magneto;
 	private Sensor accelero;
 	private Sensor gyro;
-	private static final double SAMPLE_FREQ = 25.0f;
+	private static final double SAMPLE_FREQ = 25.0;
+	private static final double TIMING_CORRECTION = SAMPLE_FREQ / 25.0;
 	private MadgwickAHRS madgwick;
 	private UpdaterThread thread;
 	
@@ -51,6 +57,12 @@ public class MainActivity extends Activity implements SensorEventListener {
 		
 		times = new ArrayList<Long>();
 		data = new ArrayList<Double>();
+		velDataX = new ArrayList<Double>();
+		velDataY = new ArrayList<Double>();
+		velDataZ = new ArrayList<Double>();
+		velDataXsm = new ArrayList<Double>();
+		velDataYsm = new ArrayList<Double>();
+		velDataZsm = new ArrayList<Double>();
 		
 		tv1 = (TextView) findViewById(R.id.textView1);
 		tv2 = (TextView) findViewById(R.id.textView2);
@@ -69,6 +81,12 @@ public class MainActivity extends Activity implements SensorEventListener {
 				{
 					times.clear();
 					data.clear();
+					velDataX.clear();
+					velDataY.clear();
+					velDataZ.clear();
+					velDataXsm.clear();
+					velDataYsm.clear();
+					velDataZsm.clear();
 					isRecording = true;
 					begin = System.currentTimeMillis();
 				}
@@ -81,8 +99,6 @@ public class MainActivity extends Activity implements SensorEventListener {
 		});
 		
 		sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
-		//List<Sensor>  list = sensorManager.getSensorList(Sensor.TYPE_ALL);
-		//linear = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
 		accelero = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 		gyro = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
 		magneto = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
@@ -93,7 +109,7 @@ public class MainActivity extends Activity implements SensorEventListener {
 		thread.start();
 	}
 	
-	public static final int NUM = 6;
+	public static final int NUM = 3;
 	private void writeData()
 	{
         try {
@@ -104,13 +120,28 @@ public class MainActivity extends Activity implements SensorEventListener {
             {
             	bw.append(times.get(i).toString());
             	bw.append(";");
-            	
+
+            	/*
             	for (int j=0; j<NUM-1; j++)
             	{
 	            	bw.append(data.get(NUM*i+j).toString());
 	            	bw.append(";");
             	}
             	bw.append(data.get(NUM*i+NUM-1).toString());
+            	*/
+            	
+            	bw.append(velDataX.get(i).toString());
+            	bw.append(";");
+            	bw.append(velDataY.get(i).toString());
+            	bw.append(";");
+            	bw.append(velDataZ.get(i).toString());
+            	bw.append(";");
+            	bw.append(velDataXsm.get(i).toString());
+            	bw.append(";");
+            	bw.append(velDataYsm.get(i).toString());
+            	bw.append(";");
+            	bw.append(velDataZsm.get(i).toString());
+            	
             	bw.newLine();
             }
             
@@ -157,6 +188,10 @@ public class MainActivity extends Activity implements SensorEventListener {
 	private LowPassFilterMulti mFilterMagneticLowPass = new LowPassFilterMulti(3);
 	private LowPassFilterMulti mFilterGyroLowPass = new LowPassFilterMulti(3);
 	
+	private ADKFilter mADKX = new ADKFilter(7, 0.1, 0.1, 0.1);
+	private ADKFilter mADKY = new ADKFilter(7, 0.1, 0.1, 0.1);
+	private ADKFilter mADKZ = new ADKFilter(7, 0.1, 0.1, 0.1);
+	
 	@Override
 	public void onSensorChanged(SensorEvent event) {
 		
@@ -175,7 +210,7 @@ public class MainActivity extends Activity implements SensorEventListener {
 			synchronized (sync)
 			{
 				mAcc = mFilterAcceleration.filter(values, 0.2);
-				mAcc = mFilterAcceleroLowPass.filter(values, 5.0);
+				mAcc = mFilterAcceleroLowPass.filter(values, 5.0 * TIMING_CORRECTION);
 				
 				// calculate moving average as mLin
 				mLin[0] = (movingAvg/(movingAvg+1)) *mLin[0] + (1/(movingAvg+1))*mAcc[0];
@@ -244,11 +279,6 @@ public class MainActivity extends Activity implements SensorEventListener {
 									tv2.setText("X:" + (mLinearWorld[0]<0?"":" ") + new DecimalFormat("0.000").format(mLinearWorld[0]) + 
 											  " Y:" + (mLinearWorld[1]<0?"":" ") + new DecimalFormat("0.000").format(mLinearWorld[1]) + 
 											  " Z:" + (mLinearWorld[2]<0?"":" ") + new DecimalFormat("0.000").format(mLinearWorld[2]));	
-									/*
-									tv3.setText("X:" + (mAcc[0]<0?"":" ") + new DecimalFormat("0.000").format(mAcc[0]) + 
-											  " Y:" + (mAcc[1]<0?"":" ") + new DecimalFormat("0.000").format(mAcc[1]) + 
-											  " Z:" + (mAcc[2]<0?"":" ") + new DecimalFormat("0.000").format(mAcc[2]));	
-											  */
 								}
 							});
 	                }
@@ -292,7 +322,7 @@ public class MainActivity extends Activity implements SensorEventListener {
 				//mLinear[2] = mLin[2];
 				//mLinear[3] = 0.0f;
 						
-				mLin = mFilterLinearLowPass.filter(mLin, 2.0);
+				mLin = mFilterLinearLowPass.filter(mLin, 2.0 * TIMING_CORRECTION);
 				
 				double[] rotMatrix = madgwick.getMatrix4(); 
 	
@@ -318,18 +348,43 @@ public class MainActivity extends Activity implements SensorEventListener {
 					mLinearWorld[i] = tWorld[i];
 				}
 				
-				
-				//mLinearWorld = madgwick.rotateVector3(mLin);
-				
 				// Record
 				if (isRecording == true)
 				{
-					data.add(mLinearWorld[0]);
-					data.add(mLinearWorld[1]);
-					data.add(mLinearWorld[2]);
-					data.add(mAngles[0]);
-					data.add(mAngles[1]);
-					data.add(mAngles[2]);
+					//data.add(mAcc[0]);
+					//data.add(mAcc[1]);
+					//data.add(mAcc[2]);
+					
+					//data.add(mLinearWorld[0]);
+					//data.add(mLinearWorld[1]);
+					//data.add(mLinearWorld[2]);
+					
+					// Integrate into veloc buff
+					if (velDataX.size() <= 1) {
+						velDataX.add(mLinearWorld[0]);
+						velDataXsm.add(0.0);
+						velDataY.add(mLinearWorld[1]);
+						velDataYsm.add(0.0);
+						velDataZ.add(mLinearWorld[2]);
+						velDataZsm.add(0.0);
+					}
+					else
+					{
+						velDataX.add(velDataX.get(velDataX.size()-1) + mLinearWorld[0]);
+						velDataXsm.add(0.0);
+						velDataY.add(velDataY.get(velDataY.size()-1) + mLinearWorld[1]);
+						velDataYsm.add(0.0);
+						velDataZ.add(velDataZ.get(velDataZ.size()-1) + mLinearWorld[2]);
+						velDataZsm.add(0.0);
+					}
+					
+					mADKX.tryFilter(velDataX, velDataXsm);
+					mADKY.tryFilter(velDataY, velDataYsm);
+					mADKZ.tryFilter(velDataZ, velDataZsm);
+					
+					//data.add(mAngles[0]);
+					//data.add(mAngles[1]);
+					//data.add(mAngles[2]);
 		
 					times.add(System.currentTimeMillis()-begin);
 				}
