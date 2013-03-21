@@ -24,6 +24,7 @@ import android.widget.ToggleButton;
 
 import com.example.stepnavi.filters.ADKFilter;
 import com.example.stepnavi.filters.LowPassFilterMulti;
+import com.example.stepnavi.filters.MedianFilterMulti;
 import com.example.stepnavi.filters.ValidDataFilterMulti;
 
 public class MainActivity extends Activity implements SensorEventListener {
@@ -109,7 +110,7 @@ public class MainActivity extends Activity implements SensorEventListener {
 		thread.start();
 	}
 	
-	public static final int NUM = 3;
+	public static final int NUM = 12;
 	private void writeData()
 	{
         try {
@@ -120,15 +121,6 @@ public class MainActivity extends Activity implements SensorEventListener {
             {
             	bw.append(times.get(i).toString());
             	bw.append(";");
-
-            	/*
-            	for (int j=0; j<NUM-1; j++)
-            	{
-	            	bw.append(data.get(NUM*i+j).toString());
-	            	bw.append(";");
-            	}
-            	bw.append(data.get(NUM*i+NUM-1).toString());
-            	*/
             	
             	bw.append(velDataX.get(i).toString());
             	bw.append(";");
@@ -141,6 +133,14 @@ public class MainActivity extends Activity implements SensorEventListener {
             	bw.append(velDataYsm.get(i).toString());
             	bw.append(";");
             	bw.append(velDataZsm.get(i).toString());
+            	bw.append(";");
+            	
+            	for (int j=0; j<NUM-1; j++)
+            	{
+	            	bw.append(data.get(NUM*i+j).toString());
+	            	bw.append(";");
+            	}
+            	bw.append(data.get(NUM*i+NUM-1).toString());
             	
             	bw.newLine();
             }
@@ -192,6 +192,8 @@ public class MainActivity extends Activity implements SensorEventListener {
 	private ADKFilter mADKY = new ADKFilter(7, 0.1, 0.1, 0.1);
 	private ADKFilter mADKZ = new ADKFilter(7, 0.1, 0.1, 0.1);
 	
+	private MedianFilterMulti mMedian = new MedianFilterMulti(3,5);
+	
 	@Override
 	public void onSensorChanged(SensorEvent event) {
 		
@@ -210,7 +212,7 @@ public class MainActivity extends Activity implements SensorEventListener {
 			synchronized (sync)
 			{
 				mAcc = mFilterAcceleration.filter(values, 0.2);
-				mAcc = mFilterAcceleroLowPass.filter(values, 5.0 * TIMING_CORRECTION);
+				//mAcc = mFilterAcceleroLowPass.filter(values, 5.0 * TIMING_CORRECTION);
 				
 				// calculate moving average as mLin
 				mLin[0] = (movingAvg/(movingAvg+1)) *mLin[0] + (1/(movingAvg+1))*mAcc[0];
@@ -303,7 +305,7 @@ public class MainActivity extends Activity implements SensorEventListener {
 			if ((mAcc != null) && (mGeo != null) && (mGyro != null) && (mLin != null))
 			{
 				madgwick.MadgwickAHRSupdate(mGyro[0], mGyro[1], mGyro[2],
-											mAcc[0], mAcc[1], mAcc[2],
+											mLin[0], mLin[1], mLin[2],
 											mGeo[0], mGeo[1], mGeo[2]);
 				angles = madgwick.getEulerAngles();
 				mAngles = angles;
@@ -321,7 +323,8 @@ public class MainActivity extends Activity implements SensorEventListener {
 				//mLinear[1] = mLin[1];
 				//mLinear[2] = mLin[2];
 				//mLinear[3] = 0.0f;
-						
+				
+				//mLin = mMedian.filter(mLin);
 				mLin = mFilterLinearLowPass.filter(mLin, 2.0 * TIMING_CORRECTION);
 				
 				double[] rotMatrix = madgwick.getMatrix4(); 
@@ -351,13 +354,17 @@ public class MainActivity extends Activity implements SensorEventListener {
 				// Record
 				if (isRecording == true)
 				{
-					//data.add(mAcc[0]);
-					//data.add(mAcc[1]);
-					//data.add(mAcc[2]);
+					data.add(mAcc[0]);
+					data.add(mAcc[1]);
+					data.add(mAcc[2]);
+
+					data.add(mLin[0]);
+					data.add(mLin[1]);
+					data.add(mLin[2]);
 					
-					//data.add(mLinearWorld[0]);
-					//data.add(mLinearWorld[1]);
-					//data.add(mLinearWorld[2]);
+					data.add(mLinearWorld[0]);
+					data.add(mLinearWorld[1]);
+					data.add(mLinearWorld[2]);
 					
 					// Integrate into veloc buff
 					if (velDataX.size() <= 1) {
@@ -382,9 +389,9 @@ public class MainActivity extends Activity implements SensorEventListener {
 					mADKY.tryFilter(velDataY, velDataYsm);
 					mADKZ.tryFilter(velDataZ, velDataZsm);
 					
-					//data.add(mAngles[0]);
-					//data.add(mAngles[1]);
-					//data.add(mAngles[2]);
+					data.add(mAngles[0]);
+					data.add(mAngles[1]);
+					data.add(mAngles[2]);
 		
 					times.add(System.currentTimeMillis()-begin);
 				}
