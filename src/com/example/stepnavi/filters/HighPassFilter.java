@@ -18,7 +18,7 @@ public class HighPassFilter {
 	
 	public double filter(double newValue, double magic)
 	{
-		temp = temp*(1-magic) + magic*newValue;
+		temp += (newValue - temp) / magic;
 		current = newValue - temp;
 		
 		return current;

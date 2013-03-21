@@ -23,6 +23,7 @@ import android.widget.Toast;
 import android.widget.ToggleButton;
 
 import com.example.stepnavi.filters.ADKFilter;
+import com.example.stepnavi.filters.HighPassFilterMulti;
 import com.example.stepnavi.filters.LowPassFilterMulti;
 import com.example.stepnavi.filters.MedianFilterMulti;
 import com.example.stepnavi.filters.ValidDataFilterMulti;
@@ -42,6 +43,7 @@ public class MainActivity extends Activity implements SensorEventListener {
 	private ArrayList<Double> velDataZsm;
 	private boolean isRecording = false;
 	private ToggleButton toggle;
+	private ToggleButton toggleCalib;
 	private SensorManager sensorManager;
 	private Sensor magneto;
 	private Sensor accelero;
@@ -50,6 +52,7 @@ public class MainActivity extends Activity implements SensorEventListener {
 	private static final double TIMING_CORRECTION = SAMPLE_FREQ / 25.0;
 	private MadgwickAHRS madgwick;
 	private UpdaterThread thread;
+	private double[] accCorr = null;
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -99,6 +102,29 @@ public class MainActivity extends Activity implements SensorEventListener {
 			}
 		});
 		
+		toggleCalib = (ToggleButton) findViewById(R.id.toggleButton2);
+		toggleCalib.setOnCheckedChangeListener(new OnCheckedChangeListener() {
+			
+			@Override
+			public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+				if (isChecked)
+				{
+					AcceleroCalibration.reset();
+				}
+				else
+				{
+					accCorr = AcceleroCalibration.getCorrections();
+					
+					mAcc = null;
+					mGeo = null;
+					mGyro = null;
+					mLin = new double[3];
+					movingAvg = 0;
+					thread.start();
+				}
+			}
+		});
+		
 		sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
 		accelero = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 		gyro = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
@@ -107,14 +133,13 @@ public class MainActivity extends Activity implements SensorEventListener {
 		thread = new UpdaterThread(this);
 		madgwick = new MadgwickAHRS();
 		madgwick.setSampleFreq(SAMPLE_FREQ);
-		thread.start();
 	}
 	
 	public static final int NUM = 12;
 	private void writeData()
 	{
         try {
-            File myFile = new File(Environment.getExternalStorageDirectory().getPath()+"/acclog_"+System.currentTimeMillis()+".txt");
+            File myFile = new File(Environment.getExternalStorageDirectory().getPath()+"/acclog_"+System.currentTimeMillis()+".csv");
             myFile.createNewFile();
             BufferedWriter bw = new BufferedWriter(new FileWriter(myFile));
             for (int i=0; i<times.size(); i++)
@@ -185,12 +210,13 @@ public class MainActivity extends Activity implements SensorEventListener {
 	private double movingAvg = 0;
 	private LowPassFilterMulti mFilterLinearLowPass = new LowPassFilterMulti(3);
 	private LowPassFilterMulti mFilterAcceleroLowPass = new LowPassFilterMulti(3);
+	private HighPassFilterMulti mFilterAcceleroHighPass = new HighPassFilterMulti(3);
 	private LowPassFilterMulti mFilterMagneticLowPass = new LowPassFilterMulti(3);
 	private LowPassFilterMulti mFilterGyroLowPass = new LowPassFilterMulti(3);
 	
-	private ADKFilter mADKX = new ADKFilter(7, 0.1, 0.1, 0.1);
-	private ADKFilter mADKY = new ADKFilter(7, 0.1, 0.1, 0.1);
-	private ADKFilter mADKZ = new ADKFilter(7, 0.1, 0.1, 0.1);
+	private ADKFilter mADKX = new ADKFilter(7, 0.2, 0.1, 0.2);
+	private ADKFilter mADKY = new ADKFilter(7, 0.2, 0.1, 0.2);
+	private ADKFilter mADKZ = new ADKFilter(7, 0.2, 0.1, 0.2);
 	
 	private MedianFilterMulti mMedian = new MedianFilterMulti(3,5);
 	
@@ -211,14 +237,27 @@ public class MainActivity extends Activity implements SensorEventListener {
 			// save acceleration as mAcc
 			synchronized (sync)
 			{
-				mAcc = mFilterAcceleration.filter(values, 0.2);
-				//mAcc = mFilterAcceleroLowPass.filter(values, 5.0 * TIMING_CORRECTION);
-				
-				// calculate moving average as mLin
-				mLin[0] = (movingAvg/(movingAvg+1)) *mLin[0] + (1/(movingAvg+1))*mAcc[0];
-				mLin[1] = (movingAvg/(movingAvg+1)) *mLin[1] + (1/(movingAvg+1))*mAcc[1];
-				mLin[2] = (movingAvg/(movingAvg+1)) *mLin[2] + (1/(movingAvg+1))*mAcc[2];
-				movingAvg++;	
+				if (toggleCalib.isChecked() == true)
+				{
+					AcceleroCalibration.addValues(values);
+				}
+				else if (accCorr != null)
+				{
+					mAcc = new double[3];
+					mAcc[0] = values[0] - accCorr[0];
+					mAcc[1] = values[1] - accCorr[1];
+					// TODO: What about Z axis?
+					mAcc[2] = values[2];
+					
+					mAcc = mFilterAcceleration.filter(mAcc, 0.2);
+					//mAcc = mFilterAcceleroLowPass.filter(values, 5.0 * TIMING_CORRECTION);
+					
+					// calculate moving average as mLin
+					mLin[0] = (movingAvg/(movingAvg+1)) *mLin[0] + (1/(movingAvg+1))*mAcc[0];
+					mLin[1] = (movingAvg/(movingAvg+1)) *mLin[1] + (1/(movingAvg+1))*mAcc[1];
+					mLin[2] = (movingAvg/(movingAvg+1)) *mLin[2] + (1/(movingAvg+1))*mAcc[2];
+					movingAvg++;
+				}
 			}
 			
 			break;
@@ -271,7 +310,7 @@ public class MainActivity extends Activity implements SensorEventListener {
 								Thread.sleep(0, 1000);
 							} catch (InterruptedException ignored) {}
         	        	 }
-	                	// show values to user
+	                	 // show values to user
 	       	        	 mActivity.runOnUiThread(new Runnable() {
 								@Override
 								public void run() {
@@ -325,6 +364,7 @@ public class MainActivity extends Activity implements SensorEventListener {
 				//mLinear[3] = 0.0f;
 				
 				//mLin = mMedian.filter(mLin);
+				mLin = mFilterAcceleroHighPass.filter(mLin, 15);
 				mLin = mFilterLinearLowPass.filter(mLin, 2.0 * TIMING_CORRECTION);
 				
 				double[] rotMatrix = madgwick.getMatrix4(); 
