@@ -5,12 +5,12 @@ import java.util.ArrayList;
 public class ADKFilter {
 
 	private int minLength = 10;
-	private double maxDelta = 0.1;
-	private double strength = 0.1;
-	private double convergence = 0.1;
+	private float maxDelta = 0.1f;
+	private float strength = 0.1f;
+	private float convergence = 0.1f;
 	
 	// third is minimum series length, fourth is the maximal slope, fifth is the low pass filter strength, and sixth is the convergence ratio!
-	public ADKFilter(int minLength, double maxDelta, double strength, double convergence)
+	public ADKFilter(int minLength, float maxDelta, float strength, float convergence)
 	{
 		this.minLength = minLength;
 		this.maxDelta = maxDelta;
@@ -24,14 +24,14 @@ public class ADKFilter {
 	private int pos = 0;
 	
 	// should be called every once a new element is added!
-	public void tryFilter(ArrayList<Double> data, ArrayList<Double> out)
+	public void tryFilter(ArrayList<Float> data, ArrayList<Float> out)
 	{
 		int goods = 0;
 		
 		if (pos + minLength*2 >= data.size()-1) return;
 		
 		// only work on not known
-		double[] diff = new double[minLength];
+		float[] diff = new float[minLength];
 	    // calc diffs
 		for(int i=pos; i<pos+minLength; i++){
 			diff[i-pos] = data.get(i+1) - data.get(i);
@@ -56,20 +56,20 @@ public class ADKFilter {
 			{
 				// connect last good with current with a line
 				int deltaPos = pos-lastPos;
-				double deltaValue = data.get(pos) - data.get(lastPos);
-				double slope = 0;
-				double lowPassed = data.get(lastPos);
+				float deltaValue = data.get(pos) - data.get(lastPos);
+				float slope = 0;
+				float lowPassed = data.get(lastPos);
 				if (deltaPos > 0)
-					slope = ((double) deltaValue)/((double) deltaPos);
+					slope = ((float) deltaValue)/((float) deltaPos);
 				for(int i=1; i<=deltaPos; i++)
 				{
 				    lowPassed += strength * (data.get(lastPos+i) - lowPassed);
-					out.set(lastPos+i, data.get(lastPos+i) - (data.get(lastPos) + slope*(double)i)*(1-convergence) + (convergence)*(lowPassed));
+					out.set(lastPos+i, data.get(lastPos+i) - (data.get(lastPos) + slope*(float)i)*(1-convergence) + (convergence)*(lowPassed));
 				    healed++;
 				}
 				if (healed == 0)
 				{
-					out.set(pos, 0.0);
+					out.set(pos, 0.0f);
 					healed++;
 				}
 			}
@@ -77,7 +77,7 @@ public class ADKFilter {
 			{
 				// its good, accept it
 				//output[pos] = input[pos];
-				out.set(pos, 0.0);
+				out.set(pos, 0.0f);
 				healed++;
 			}
 			// set values for later
@@ -93,13 +93,13 @@ public class ADKFilter {
 			if (goodsLeft-- > 0)
 			{
 				//output[pos] = input[pos];
-				out.set(pos, 0.0);
+				out.set(pos, 0.0f);
 				lastPos = pos;
 				pos++;
 			}
 			else
 			{
-				out.set(pos, -4.0);
+				out.set(pos, -4.0f);
 				pos++;
 			}
 			// kill length

@@ -30,17 +30,21 @@ import com.example.stepnavi.filters.ValidDataFilterMulti;
 
 public class MainActivity extends Activity implements SensorEventListener {
 
-	private TextView tv1, tv2, tv3;
+	// Settings
+	private static final float SAMPLE_FREQ = 40.0f;
+	private static final float TIMING_CORRECTION = SAMPLE_FREQ / 25.0f;
+
 	
+	private TextView tv1, tv2, tv3, tv4;
 	private long begin;
 	private ArrayList<Long> times;
-	private ArrayList<Double> data;
-	private ArrayList<Double> velDataX;
-	private ArrayList<Double> velDataXsm;
-	private ArrayList<Double> velDataY;
-	private ArrayList<Double> velDataYsm;
-	private ArrayList<Double> velDataZ;
-	private ArrayList<Double> velDataZsm;
+	private ArrayList<Float> data;
+	private ArrayList<Float> velDataX;
+	private ArrayList<Float> velDataXsm;
+	private ArrayList<Float> velDataY;
+	private ArrayList<Float> velDataYsm;
+	private ArrayList<Float> velDataZ;
+	private ArrayList<Float> velDataZsm;
 	private boolean isRecording = false;
 	private ToggleButton toggle;
 	private ToggleButton toggleCalib;
@@ -48,11 +52,9 @@ public class MainActivity extends Activity implements SensorEventListener {
 	private Sensor magneto;
 	private Sensor accelero;
 	private Sensor gyro;
-	private static final double SAMPLE_FREQ = 25.0;
-	private static final double TIMING_CORRECTION = SAMPLE_FREQ / 25.0;
 	private MadgwickAHRS madgwick;
 	private UpdaterThread thread;
-	private double[] accCorr = null;
+	private float[] accCorr = null;
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -60,21 +62,23 @@ public class MainActivity extends Activity implements SensorEventListener {
 		setContentView(R.layout.activity_main);
 		
 		times = new ArrayList<Long>();
-		data = new ArrayList<Double>();
-		velDataX = new ArrayList<Double>();
-		velDataY = new ArrayList<Double>();
-		velDataZ = new ArrayList<Double>();
-		velDataXsm = new ArrayList<Double>();
-		velDataYsm = new ArrayList<Double>();
-		velDataZsm = new ArrayList<Double>();
+		data = new ArrayList<Float>();
+		velDataX = new ArrayList<Float>();
+		velDataY = new ArrayList<Float>();
+		velDataZ = new ArrayList<Float>();
+		velDataXsm = new ArrayList<Float>();
+		velDataYsm = new ArrayList<Float>();
+		velDataZsm = new ArrayList<Float>();
 		
 		tv1 = (TextView) findViewById(R.id.textView1);
 		tv2 = (TextView) findViewById(R.id.textView2);
 		tv3 = (TextView) findViewById(R.id.textView3);
+		tv4 = (TextView) findViewById(R.id.textView4);
 		
 		tv1.setTypeface(Typeface.MONOSPACE);
 		tv2.setTypeface(Typeface.MONOSPACE);
 		tv3.setTypeface(Typeface.MONOSPACE);
+		tv4.setTypeface(Typeface.MONOSPACE);
 		
 		toggle = (ToggleButton) findViewById(R.id.toggleButton1);
 		toggle.setOnCheckedChangeListener(new OnCheckedChangeListener() {
@@ -118,9 +122,10 @@ public class MainActivity extends Activity implements SensorEventListener {
 					mAcc = null;
 					mGeo = null;
 					mGyro = null;
-					mLin = new double[3];
+					mLin = new float[3];
 					movingAvg = 0;
 					thread.start();
+					toggleCalib.setEnabled(false);
 				}
 			}
 		});
@@ -193,30 +198,31 @@ public class MainActivity extends Activity implements SensorEventListener {
 	}
 
 	public Object sync = new Object();
-	private double[] mAcc = null;
-	private double[] mGeo = null;
-	private double[] mGyro = null;
-	private double[] mLin = new double[3];
+	private float[] mAcc = null;
+	private float[] mGeo = null;
+	private float[] mGyro = null;
+	private float[] mLin = new float[3];
 	
-	private double[] mAngles = new double[3];
-	private double[] mLinear = new double[4];
-	private double[] mLinearWorld = new double[4];
+	private float[] mAnglesA = new float[3];
+	private float[] mAnglesM = new float[3];
+	private float[] mLinear = new float[4];
+	private float[] mLinearWorldM = new float[4];
+	private float[] mLinearWorldA = new float[4];
 	
-	private ValidDataFilterMulti mFilterMagnetic = new ValidDataFilterMulti(3);
-	private ValidDataFilterMulti mFilterGyroscope = new ValidDataFilterMulti(3);
-	private ValidDataFilterMulti mFilterAcceleration = new ValidDataFilterMulti(3);
-	private ValidDataFilterMulti mFilterLinear = new ValidDataFilterMulti(3);
+	private MedianFilterMulti mFilterMagnetic = new MedianFilterMulti(3,3);
+	private MedianFilterMulti mFilterGyroscope = new MedianFilterMulti(3,3);
+	private MedianFilterMulti mFilterAcceleration = new MedianFilterMulti(3,3);
 	
-	private double movingAvg = 0;
+	private float movingAvg = 0;
+	private HighPassFilterMulti mFilterAcceleroHighPass = new HighPassFilterMulti(3);
 	private LowPassFilterMulti mFilterLinearLowPass = new LowPassFilterMulti(3);
 	private LowPassFilterMulti mFilterAcceleroLowPass = new LowPassFilterMulti(3);
-	private HighPassFilterMulti mFilterAcceleroHighPass = new HighPassFilterMulti(3);
 	private LowPassFilterMulti mFilterMagneticLowPass = new LowPassFilterMulti(3);
 	private LowPassFilterMulti mFilterGyroLowPass = new LowPassFilterMulti(3);
 	
-	private ADKFilter mADKX = new ADKFilter(7, 0.2, 0.1, 0.2);
-	private ADKFilter mADKY = new ADKFilter(7, 0.2, 0.1, 0.2);
-	private ADKFilter mADKZ = new ADKFilter(7, 0.2, 0.1, 0.2);
+	private ADKFilter mADKX = new ADKFilter(20, 0.12f, 0.1f, 0.2f);
+	private ADKFilter mADKY = new ADKFilter(20, 0.12f, 0.1f, 0.2f);
+	private ADKFilter mADKZ = new ADKFilter(20, 0.12f, 0.1f, 0.2f);
 	
 	private MedianFilterMulti mMedian = new MedianFilterMulti(3,5);
 	
@@ -227,10 +233,7 @@ public class MainActivity extends Activity implements SensorEventListener {
 	        	return;
 	    }
 	    
-	    double[] values = new double[3];
-	    values[0] = event.values[0];
-	    values[1] = event.values[1];
-	    values[2] = event.values[2];
+	    float[] values = event.values;
 		
 		switch (event.sensor.getType()) {
 		case Sensor.TYPE_ACCELEROMETER:
@@ -243,14 +246,13 @@ public class MainActivity extends Activity implements SensorEventListener {
 				}
 				else if (accCorr != null)
 				{
-					mAcc = new double[3];
+					mAcc = new float[3];
 					mAcc[0] = values[0] - accCorr[0];
 					mAcc[1] = values[1] - accCorr[1];
 					// TODO: What about Z axis?
 					mAcc[2] = values[2];
 					
-					mAcc = mFilterAcceleration.filter(mAcc, 0.2);
-					//mAcc = mFilterAcceleroLowPass.filter(values, 5.0 * TIMING_CORRECTION);
+					mAcc = mFilterAcceleration.filter(mAcc);
 					
 					// calculate moving average as mLin
 					mLin[0] = (movingAvg/(movingAvg+1)) *mLin[0] + (1/(movingAvg+1))*mAcc[0];
@@ -266,8 +268,7 @@ public class MainActivity extends Activity implements SensorEventListener {
 			{
 				if (mGyro == null)
 				{
-					mGyro = mFilterGyroscope.filter(values, 0.2f);
-					//mGyro = mFilterGyroLowPass.filter(mGyro, 3.0f);
+					mGyro = mFilterGyroscope.filter(values);
 				}
 			}
 			break;
@@ -275,8 +276,7 @@ public class MainActivity extends Activity implements SensorEventListener {
 			synchronized (sync)
 			{
 				if (mGeo == null){
-					mGeo = mFilterMagnetic.filter(values, 0.2f);
-					//mGeo = mFilterMagneticLowPass.filter(mGeo, 5.0f);
+					mGeo = mFilterMagnetic.filter(values);
 				}
 			}
 			break;
@@ -314,12 +314,18 @@ public class MainActivity extends Activity implements SensorEventListener {
 	       	        	 mActivity.runOnUiThread(new Runnable() {
 								@Override
 								public void run() {
-									tv1.setText("X:  " + (mAngles[0]<0?"":" ") + new DecimalFormat("000").format(mAngles[0]/3.14*180) + 
-											  " Y:  " + (mAngles[1]<0?"":" ") + new DecimalFormat("000").format(mAngles[1]/3.14*180) + 
-											  " Z:  " + (mAngles[2]<0?"":" ") + new DecimalFormat("000").format(mAngles[2]/3.14*180));	
-									tv2.setText("X:" + (mLinearWorld[0]<0?"":" ") + new DecimalFormat("0.000").format(mLinearWorld[0]) + 
-											  " Y:" + (mLinearWorld[1]<0?"":" ") + new DecimalFormat("0.000").format(mLinearWorld[1]) + 
-											  " Z:" + (mLinearWorld[2]<0?"":" ") + new DecimalFormat("0.000").format(mLinearWorld[2]));	
+									tv1.setText("Madgwick X:  " + (mAnglesM[0]<0?"":" ") + new DecimalFormat("000").format(mAnglesM[0]/3.14159*180) + 
+											  " Y:  " + (mAnglesM[1]<0?"":" ") + new DecimalFormat("000").format(mAnglesM[1]/3.14159*180) + 
+											  " Z:  " + (mAnglesM[2]<0?"":" ") + new DecimalFormat("000").format(mAnglesM[2]/3.14159*180));	
+									tv2.setText("Android  X:  " + (mAnglesA[0]<0?"":" ") + new DecimalFormat("000").format(mAnglesA[0]/3.14159*180) + 
+											  " Y:  " + (mAnglesA[1]<0?"":" ") + new DecimalFormat("000").format(mAnglesA[1]/3.14159*180) + 
+											  " Z:  " + (mAnglesA[2]<0?"":" ") + new DecimalFormat("000").format(mAnglesA[2]/3.14159*180));
+									tv3.setText("Madgwick X:" + (mLinearWorldM[0]<0?"":" ") + new DecimalFormat("0.000").format(mLinearWorldM[0]) + 
+											  " Y:" + (mLinearWorldM[1]<0?"":" ") + new DecimalFormat("0.000").format(mLinearWorldM[1]) + 
+											  " Z:" + (mLinearWorldM[2]<0?"":" ") + new DecimalFormat("0.000").format(mLinearWorldM[2]));	
+									tv4.setText("Android  X:" + (mLinearWorldA[0]<0?"":" ") + new DecimalFormat("0.000").format(mLinearWorldA[0]) + 
+											  " Y:" + (mLinearWorldA[1]<0?"":" ") + new DecimalFormat("0.000").format(mLinearWorldA[1]) + 
+											  " Z:" + (mLinearWorldA[2]<0?"":" ") + new DecimalFormat("0.000").format(mLinearWorldA[2]));
 								}
 							});
 	                }
@@ -337,60 +343,46 @@ public class MainActivity extends Activity implements SensorEventListener {
 	
 	public boolean calculate_AHRS()
 	{
-		double[] angles = null;
-		boolean res = false;
+		float[] angles = null;
 		synchronized (sync)
 		{
 			if ((mAcc != null) && (mGeo != null) && (mGyro != null) && (mLin != null))
 			{
+				// -----------------------------------------------------------------------
+				// #1 way
+				float[] rotMatrixA = new float[16];
+				float[] rotMatrixAtemp = new float[16];
+				SensorManager.getRotationMatrix(rotMatrixAtemp, null, mLin, mGeo);
+				SensorManager.remapCoordinateSystem(rotMatrixAtemp, SensorManager.AXIS_X, SensorManager.AXIS_Y, rotMatrixA);
+				SensorManager.getOrientation(rotMatrixA, mAnglesA); 
+				
+				// -----------------------------------------------------------------------
+				// #2 way
 				madgwick.MadgwickAHRSupdate(mGyro[0], mGyro[1], mGyro[2],
 											mLin[0], mLin[1], mLin[2],
 											mGeo[0], mGeo[1], mGeo[2]);
 				angles = madgwick.getEulerAngles();
-				mAngles = angles;
+				mAnglesM = angles;
+				float[] rotMatrixM = madgwick.getMatrix4();
 				
-				// res
-				res = true;
-			
-				// Calc Moving
+				// -----------------------------------------------------------------------
+				// Filter movement
+				//mLin = mFilterAcceleroHighPass.filter(mLin, 30);
+				mLin = mMedian.filter(mLin);
 				
-				//mLin = mFilterLinearLowPass.filter(mLin, 2.0f);
-				//mLin = mFilterLinearHighPass.filter(mLin, 0.1f);	
-				//mLin = mFilterLinearLowPass2.filter(mLin, 10.0f);
-				
-				//mLinear[0] = mLin[0];
-				//mLinear[1] = mLin[1];
-				//mLinear[2] = mLin[2];
-				//mLinear[3] = 0.0f;
-				
-				//mLin = mMedian.filter(mLin);
-				mLin = mFilterAcceleroHighPass.filter(mLin, 15);
-				mLin = mFilterLinearLowPass.filter(mLin, 2.0 * TIMING_CORRECTION);
-				
-				double[] rotMatrix = madgwick.getMatrix4(); 
-	
-				// float castings
-				float[] tlin = new float[4];
-				tlin[0] = (float) mLin[0];
-				tlin[1] = (float) mLin[1];
-				tlin[2] = (float) mLin[2];
-				tlin[3] = 0.0f;
-				float[] tWorld = new float[4];
-				float[] rot = new float[16];
-				for (int i=0; i<16; i++)
-				{
-					rot[i] = (float) rotMatrix[i];
-				}
-				
+				// -----------------------------------------------------------------------
+				// Transform acceleration vector
+				mLinear[0] = mLin[0];
+				mLinear[1] = mLin[1];
+				mLinear[2] = mLin[2];
+				mLinear[3] = 0.0f;
 				// rotate!
-				android.opengl.Matrix.multiplyMV(tWorld, 0, rot, 0, tlin, 0);
+				android.opengl.Matrix.multiplyMV(mLinearWorldM, 0, rotMatrixM, 0, mLinear, 0);
+				float[] rotMatrixAI = new float[16];
+				android.opengl.Matrix.invertM(rotMatrixAI, 0, rotMatrixA, 0);
+				android.opengl.Matrix.multiplyMV(mLinearWorldA, 0, rotMatrixAI, 0, mLinear, 0);
 				
-				// back casting
-				for (int i=0; i<4; i++)
-				{
-					mLinearWorld[i] = tWorld[i];
-				}
-				
+				// -----------------------------------------------------------------------
 				// Record
 				if (isRecording == true)
 				{
@@ -402,36 +394,36 @@ public class MainActivity extends Activity implements SensorEventListener {
 					data.add(mLin[1]);
 					data.add(mLin[2]);
 					
-					data.add(mLinearWorld[0]);
-					data.add(mLinearWorld[1]);
-					data.add(mLinearWorld[2]);
+					data.add(mLinearWorldM[0]);
+					data.add(mLinearWorldM[1]);
+					data.add(mLinearWorldM[2]);
 					
 					// Integrate into veloc buff
 					if (velDataX.size() <= 1) {
-						velDataX.add(mLinearWorld[0]);
-						velDataXsm.add(0.0);
-						velDataY.add(mLinearWorld[1]);
-						velDataYsm.add(0.0);
-						velDataZ.add(mLinearWorld[2]);
-						velDataZsm.add(0.0);
+						velDataX.add(mLinearWorldM[0]);
+						velDataXsm.add(0.0f);
+						velDataY.add(mLinearWorldM[1]);
+						velDataYsm.add(0.0f);
+						velDataZ.add(mLinearWorldM[2]);
+						velDataZsm.add(0.0f);
 					}
 					else
 					{
-						velDataX.add(velDataX.get(velDataX.size()-1) + mLinearWorld[0]);
-						velDataXsm.add(0.0);
-						velDataY.add(velDataY.get(velDataY.size()-1) + mLinearWorld[1]);
-						velDataYsm.add(0.0);
-						velDataZ.add(velDataZ.get(velDataZ.size()-1) + mLinearWorld[2]);
-						velDataZsm.add(0.0);
+						velDataX.add(velDataX.get(velDataX.size()-1) + mLinearWorldM[0]);
+						velDataXsm.add(0.0f);
+						velDataY.add(velDataY.get(velDataY.size()-1) + mLinearWorldM[1]);
+						velDataYsm.add(0.0f);
+						velDataZ.add(velDataZ.get(velDataZ.size()-1) + mLinearWorldM[2]);
+						velDataZsm.add(0.0f);
 					}
 					
 					mADKX.tryFilter(velDataX, velDataXsm);
 					mADKY.tryFilter(velDataY, velDataYsm);
 					mADKZ.tryFilter(velDataZ, velDataZsm);
 					
-					data.add(mAngles[0]);
-					data.add(mAngles[1]);
-					data.add(mAngles[2]);
+					data.add(mAnglesM[0]);
+					data.add(mAnglesM[1]);
+					data.add(mAnglesM[2]);
 		
 					times.add(System.currentTimeMillis()-begin);
 				}
@@ -440,11 +432,11 @@ public class MainActivity extends Activity implements SensorEventListener {
 				mAcc = null;
 				mGeo = null;
 				mGyro = null;
-				mLin = new double[3];
+				mLin = new float[3];
 				movingAvg = 0;
 			}
 		}
-		return res;
+		return true;
 	}	
 
 	@Override

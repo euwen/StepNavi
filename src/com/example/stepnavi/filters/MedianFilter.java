@@ -4,14 +4,14 @@ import java.util.ArrayList;
 
 public class MedianFilter {
 	
-	private ArrayList<Double> window;
-	private double current = 0;
+	private ArrayList<Float> window;
+	private float current = 0;
 	
 	public MedianFilter(int windowSize) {
-		window = new ArrayList<Double>();
+		window = new ArrayList<Float>();
 		for(int i=0; i<windowSize; i++)
 		{
-			window.add(0.0);
+			window.add(0.0f);
 		}
 	}
 	
@@ -20,16 +20,16 @@ public class MedianFilter {
 		current = 0.0f;
 		for(int i=0; i<window.size(); i++)
 		{
-			window.set(i,0.0);
+			window.set(i,0.0f);
 		}
 	}
 	
-	public double getCurrentOutput()
+	public float getCurrentOutput()
 	{
 		return current;
 	}
 	
-	private void insertShift(double newValue)
+	private void insertShift(float newValue)
 	{
 		// insert at first place
 		window.add(0, newValue);
@@ -54,12 +54,12 @@ public class MedianFilter {
 		end procedure
 	 */
 	
-	private double[] getSorted()
+	private float[] getSorted()
 	{
-		double temp;
+		float temp;
 		int newn = 0;
 		int n = window.size();
-		double[] data = new double[n];
+		float[] data = new float[n];
 		for (int i=0; i<n; i++)
 		{
 			data[i] = window.get(i);
@@ -82,10 +82,10 @@ public class MedianFilter {
 		return data;
 	}
 	
-	public double filter(double newValue)
+	public float filter(float newValue)
 	{
 		insertShift(newValue);
-		double[] data = getSorted();
+		float[] data = getSorted();
 		int p = data.length / 2;
 		if ((data.length % 2) == 0)
 		{

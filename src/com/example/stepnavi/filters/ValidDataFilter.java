@@ -3,9 +3,9 @@ package com.example.stepnavi.filters;
 
 public class ValidDataFilter {
 
-	private double current = 0.0f;
-	private double lastInput = 0.0f;
-	private double alpha = 0.0f;
+	private float current = 0.0f;
+	private float lastInput = 0.0f;
+	private float alpha = 0.0f;
 	
 	public void reset()
 	{
@@ -14,7 +14,7 @@ public class ValidDataFilter {
 		alpha = 0.0f;
 	}
 	
-	public double getCurrentOutput()
+	public float getCurrentOutput()
 	{
 		return current;
 	}
@@ -23,9 +23,9 @@ public class ValidDataFilter {
 	// =(1/(1+(B2-B1)*(B2-B1)))*B2+H1*(1-1/(1+(B2-B1)*(B2-B1)))
 	// where H column is the output and B column is the input
 	
-	public double filter(double newValue, double magic)
+	public float filter(float newValue, float magic)
 	{
-		alpha = 1/(1 + (double)Math.pow((double)(Math.abs(newValue-lastInput)), (double)magic));
+		alpha = 1/(1 + (float)Math.pow((float)(Math.abs(newValue-lastInput)), (float)magic));
 		current = current*(1-alpha)	+ alpha*newValue;
 		
 		return current;
