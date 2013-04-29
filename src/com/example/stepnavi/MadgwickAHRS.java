@@ -19,7 +19,7 @@ public class MadgwickAHRS {
 	public MadgwickAHRS() 
 	{
 		sampleFreq = 25.0f;
-		beta = 0.3f;
+		beta = 0.9f;
 		quaternion = new float[4];
 		quaternion[0] = 1.0f;
 		quaternion[1] = 0.0f;

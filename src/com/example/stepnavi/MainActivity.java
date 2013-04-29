@@ -140,7 +140,7 @@ public class MainActivity extends Activity implements SensorEventListener {
 		madgwick.setSampleFreq(SAMPLE_FREQ);
 	}
 	
-	public static final int NUM = 12;
+	public static final int NUM = 15;
 	private void writeData()
 	{
         try {
@@ -341,8 +341,15 @@ public class MainActivity extends Activity implements SensorEventListener {
 	    }
 	}
 	
+	private int magic = 0;
 	public boolean calculate_AHRS()
 	{
+		magic++;
+		if (magic >= (int)(1000.0f/SAMPLE_FREQ)*5)
+		{
+			madgwick.setBeta(0.03f);
+		}
+		
 		float[] angles = null;
 		synchronized (sync)
 		{
@@ -424,6 +431,10 @@ public class MainActivity extends Activity implements SensorEventListener {
 					data.add(mAnglesM[0]);
 					data.add(mAnglesM[1]);
 					data.add(mAnglesM[2]);
+					
+					data.add(mAnglesA[0]);
+					data.add(mAnglesA[1]);
+					data.add(mAnglesA[2]);
 		
 					times.add(System.currentTimeMillis()-begin);
 				}
