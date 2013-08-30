@@ -518,9 +518,9 @@ public class MainActivity extends Activity implements SensorEventListener {
 				// Send to remote
 				if (sender != null) {
 					Object args[] = new Object[3];
-					args[0] = Integer.valueOf((int) (mAnglesA[0] / 3.14159 * 180));
-					args[1] = Integer.valueOf((int) (mAnglesA[1] / 3.14159 * 180));
-					args[2] = Integer.valueOf((int) (mAnglesA[2] / 3.14159 * 180));
+					args[0] = Float.valueOf(mAnglesA[0]);
+					args[1] = Float.valueOf(mAnglesA[1]);
+					args[2] = Float.valueOf(mAnglesA[2]);
 					OSCMessage msg = new OSCMessage("/data/angles/A", args);
 					//new SendOSCMessageTask().execute(msg);
 					try {
