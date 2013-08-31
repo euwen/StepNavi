@@ -59,6 +59,7 @@ public class MainActivity extends Activity implements SensorEventListener {
 	private SensorManager sensorManager;
 	private Sensor magneto;
 	private Sensor accelero;
+	private Sensor gravity;
 	private Sensor gyro;
 	private MadgwickAHRS madgwick;
 	private UpdaterThread thread;
@@ -160,6 +161,7 @@ public class MainActivity extends Activity implements SensorEventListener {
 
 		sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
 		accelero = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+		gravity = sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
 		gyro = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
 		magneto = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
 
@@ -229,6 +231,7 @@ public class MainActivity extends Activity implements SensorEventListener {
 
 	public Object sync = new Object();
 	private float[] mAcc = null;
+	private float[] mGra = null;
 	private float[] mGeo = null;
 	private float[] mGyro = null;
 	private float[] mLin = new float[3];
@@ -239,6 +242,7 @@ public class MainActivity extends Activity implements SensorEventListener {
 	private float[] mLinearWorldM = new float[4];
 	private float[] mLinearWorldA = new float[4];
 
+	private MedianFilterMulti mFilterGravity = new MedianFilterMulti(3, 3);
 	private MedianFilterMulti mFilterMagnetic = new MedianFilterMulti(3, 3);
 	private MedianFilterMulti mFilterGyroscope = new MedianFilterMulti(3, 3);
 	private MedianFilterMulti mFilterAcceleration = new MedianFilterMulti(3, 3);
@@ -295,6 +299,13 @@ public class MainActivity extends Activity implements SensorEventListener {
 				}
 			}
 
+			break;
+		case Sensor.TYPE_GRAVITY:
+			synchronized (sync) {
+				if (mGra == null) {
+					mGra = mFilterGravity.filter(values);
+				}
+			}
 			break;
 		case Sensor.TYPE_GYROSCOPE:
 			synchronized (sync) {
@@ -420,12 +431,12 @@ public class MainActivity extends Activity implements SensorEventListener {
 		synchronized (sync) {
 			// if ((mAcc != null) && (mGeo != null) && (mGyro != null) && (mLin
 			// != null))
-			if ((mAcc != null) && (mGeo != null) && (mLin != null)) {
+			if ((mAcc != null) && (mGeo != null) && (mLin != null) && (mGra != null)) {
 				// -----------------------------------------------------------------------
 				// #1 way
 				float[] rotMatrixA = new float[16];
 				float[] rotMatrixAtemp = new float[16];
-				SensorManager.getRotationMatrix(rotMatrixAtemp, null, mLin,
+				SensorManager.getRotationMatrix(rotMatrixAtemp, null, mAcc,
 						mGeo);
 				SensorManager.remapCoordinateSystem(rotMatrixAtemp,
 						SensorManager.AXIS_X, SensorManager.AXIS_Y, rotMatrixA);
@@ -522,7 +533,6 @@ public class MainActivity extends Activity implements SensorEventListener {
 					args[1] = Float.valueOf(mAnglesA[1]);
 					args[2] = Float.valueOf(mAnglesA[2]);
 					OSCMessage msg = new OSCMessage("/data/angles/A", args);
-					//new SendOSCMessageTask().execute(msg);
 					try {
 						sender.send(msg);
 					} catch (IOException e) {
@@ -537,6 +547,7 @@ public class MainActivity extends Activity implements SensorEventListener {
 				mAcc = null;
 				mGeo = null;
 				mGyro = null;
+				mGra = null;
 				mLin = new float[3];
 				movingAvg = 0;
 			}
@@ -557,28 +568,13 @@ public class MainActivity extends Activity implements SensorEventListener {
 		// SensorManager.SENSOR_DELAY_FASTEST);
 		// sensorManager.registerListener(this, linear,
 		// SensorManager.SENSOR_DELAY_FASTEST);
+		sensorManager.registerListener(this, gravity,
+				SensorManager.SENSOR_DELAY_FASTEST);
 		sensorManager.registerListener(this, accelero,
 				SensorManager.SENSOR_DELAY_FASTEST);
 		sensorManager.registerListener(this, gyro,
 				SensorManager.SENSOR_DELAY_FASTEST);
 		sensorManager.registerListener(this, magneto,
 				SensorManager.SENSOR_DELAY_FASTEST);
-	}
-
-	// class to send events async on network
-	class SendOSCMessageTask extends AsyncTask<OSCMessage, Void, Void> {
-
-		@Override
-		protected Void doInBackground(OSCMessage... params) {
-			// send messages
-			try {
-				for (OSCMessage oscMessage : params) {
-					sender.send(oscMessage);
-				}
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-			return null;
-		}
 	}
 }
