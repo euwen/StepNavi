@@ -12,12 +12,12 @@ import java.util.ArrayList;
 
 import android.app.Activity;
 import android.content.Context;
+import android.graphics.Matrix;
 import android.graphics.Typeface;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
 import android.view.Menu;
@@ -237,6 +237,7 @@ public class MainActivity extends Activity implements SensorEventListener {
 	private float[] mLin = new float[3];
 
 	private float[] mAnglesA = new float[3];
+	private float[] mQuaternionA = new float[4];
 	private float[] mAnglesM = new float[3];
 	private float[] mLinear = new float[4];
 	private float[] mLinearWorldM = new float[4];
@@ -438,9 +439,11 @@ public class MainActivity extends Activity implements SensorEventListener {
 				float[] rotMatrixAtemp = new float[16];
 				SensorManager.getRotationMatrix(rotMatrixAtemp, null, mAcc,
 						mGeo);
-				SensorManager.remapCoordinateSystem(rotMatrixAtemp,
-						SensorManager.AXIS_X, SensorManager.AXIS_Y, rotMatrixA);
-				SensorManager.getOrientation(rotMatrixA, mAnglesA);
+				//SensorManager.remapCoordinateSystem(rotMatrixAtemp,
+				//		SensorManager.AXIS_X, SensorManager.AXIS_Y, rotMatrixA);
+				mQuaternionA = getQuaternionFromMatrix(rotMatrixAtemp);
+				//SensorManager.getOrientation(rotMatrixA, mAnglesA);
+				SensorManager.getOrientation(rotMatrixAtemp, mAnglesA);
 
 				// -----------------------------------------------------------------------
 				// #2 way
@@ -528,11 +531,21 @@ public class MainActivity extends Activity implements SensorEventListener {
 				// -----------------------------------------------------------------------
 				// Send to remote
 				if (sender != null) {
+					/*
 					Object args[] = new Object[3];
 					args[0] = Float.valueOf(mAnglesA[0]);
 					args[1] = Float.valueOf(mAnglesA[1]);
 					args[2] = Float.valueOf(mAnglesA[2]);
 					OSCMessage msg = new OSCMessage("/data/angles/A", args);
+					*/
+					
+					Object args[] = new Object[4];
+					args[0] = Float.valueOf(mQuaternionA[0]);
+					args[1] = Float.valueOf(mQuaternionA[1]);
+					args[2] = Float.valueOf(mQuaternionA[2]);
+					args[3] = Float.valueOf(mQuaternionA[3]);
+					OSCMessage msg = new OSCMessage("/data/quaternion/A", args);
+					
 					try {
 						sender.send(msg);
 					} catch (IOException e) {
@@ -576,5 +589,17 @@ public class MainActivity extends Activity implements SensorEventListener {
 				SensorManager.SENSOR_DELAY_FASTEST);
 		sensorManager.registerListener(this, magneto,
 				SensorManager.SENSOR_DELAY_FASTEST);
+	}
+
+	public static float[] getQuaternionFromMatrix(float[] m) {
+		float[] q = new float[4];
+		q[0] = (float) (Math.sqrt( Math.max( 0, 1 + m[0] + m[5] + m[10] ) ) / 2); 
+		q[1] = (float) (Math.sqrt( Math.max( 0, 1 + m[0] - m[5] - m[10] ) ) / 2); 
+		q[2] = (float) (Math.sqrt( Math.max( 0, 1 - m[0] + m[5] - m[10] ) ) / 2); 
+		q[3] = (float) (Math.sqrt( Math.max( 0, 1 - m[0] - m[5] + m[10] ) ) / 2); 
+		q[1] *= Math.signum( q[1] * ( m[9] - m[6] ) );
+		q[2] *= Math.signum( q[2] * ( m[2] - m[8] ) );
+		q[3] *= Math.signum( q[3] * ( m[4] - m[1] ) );
+		return q;
 	}
 }
