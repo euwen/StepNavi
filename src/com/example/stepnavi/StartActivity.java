@@ -14,23 +14,25 @@ public class StartActivity extends Activity {
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_start);
-		
-		Button imu = (Button)findViewById(R.id.btnIMU);
-		imu.setOnClickListener( new OnClickListener() {
-			
+
+		Button imu = (Button) findViewById(R.id.btnIMU);
+		imu.setOnClickListener(new OnClickListener() {
+
 			@Override
 			public void onClick(View v) {
-				Intent i = new Intent(getApplicationContext(), MainActivity.class);
+				Intent i = new Intent(getApplicationContext(),
+						MainActivity.class);
 				startActivity(i);
 			}
 		});
-		
-		Button oth = (Button)findViewById(R.id.btnOther);
-		oth.setOnClickListener( new OnClickListener() {
-			
+
+		Button oth = (Button) findViewById(R.id.btnOther);
+		oth.setOnClickListener(new OnClickListener() {
+
 			@Override
 			public void onClick(View v) {
-				Intent i = new Intent(getApplicationContext(), MainActivity.class);
+				Intent i = new Intent(getApplicationContext(),
+						MainActivity.class);
 				startActivity(i);
 			}
 		});
@@ -42,5 +44,4 @@ public class StartActivity extends Activity {
 		getMenuInflater().inflate(R.menu.start, menu);
 		return true;
 	}
-
 }

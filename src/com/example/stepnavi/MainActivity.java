@@ -10,6 +10,14 @@ import java.net.UnknownHostException;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 
+import org.opencv.android.BaseLoaderCallback;
+import org.opencv.android.CameraBridgeViewBase;
+import org.opencv.android.LoaderCallbackInterface;
+import org.opencv.android.OpenCVLoader;
+import org.opencv.android.CameraBridgeViewBase.CvCameraViewListener;
+import org.opencv.core.Core;
+import org.opencv.core.Mat;
+
 import android.app.Activity;
 import android.content.Context;
 import android.graphics.Matrix;
@@ -20,7 +28,9 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.os.Environment;
+import android.util.Log;
 import android.view.Menu;
+import android.view.SurfaceView;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
@@ -37,7 +47,7 @@ import com.example.stepnavi.filters.MedianFilterMulti;
 import com.illposed.osc.OSCMessage;
 import com.illposed.osc.OSCPortOut;
 
-public class MainActivity extends Activity implements SensorEventListener {
+public class MainActivity extends Activity implements SensorEventListener, CvCameraViewListener {
 
 	// Settings
 	private static final float SAMPLE_FREQ = 40.0f;
@@ -66,6 +76,8 @@ public class MainActivity extends Activity implements SensorEventListener {
 	private float[] accCorr = null;
 
 	private static OSCPortOut sender = null;
+	
+	private CameraBridgeViewBase mOpenCvCameraView = null;
 
 	private TextView ipText;
 	private Button buttonConnect;
@@ -74,6 +86,10 @@ public class MainActivity extends Activity implements SensorEventListener {
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);
+		
+		mOpenCvCameraView = (CameraBridgeViewBase) findViewById(R.id.HelloOpenCvView);
+		mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
+		mOpenCvCameraView.setCvCameraViewListener(this);
 
 		times = new ArrayList<Long>();
 		data = new ArrayList<Float>();
@@ -572,6 +588,8 @@ public class MainActivity extends Activity implements SensorEventListener {
 	protected void onPause() {
 		super.onPause();
 		sensorManager.unregisterListener(this);
+		if (mOpenCvCameraView != null)
+			 mOpenCvCameraView.disableView();
 	}
 
 	@Override
@@ -589,6 +607,7 @@ public class MainActivity extends Activity implements SensorEventListener {
 				SensorManager.SENSOR_DELAY_FASTEST);
 		sensorManager.registerListener(this, magneto,
 				SensorManager.SENSOR_DELAY_FASTEST);
+		OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_2_4_6, this, mLoaderCallback);
 	}
 
 	public static float[] getQuaternionFromMatrix(float[] m) {
@@ -601,5 +620,39 @@ public class MainActivity extends Activity implements SensorEventListener {
 		q[2] *= Math.signum( q[2] * ( m[2] - m[8] ) );
 		q[3] *= Math.signum( q[3] * ( m[4] - m[1] ) );
 		return q;
+	}
+	
+	private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
+		@Override
+		public void onManagerConnected(int status) {
+			switch (status) {
+			case LoaderCallbackInterface.SUCCESS: {
+				Log.i("", "OpenCV loaded successfully");
+				mOpenCvCameraView.enableView();
+			}
+				break;
+			default: {
+				super.onManagerConnected(status);
+			}
+				break;
+			}
+		}
+	};
+
+	@Override
+	public void onCameraViewStarted(int width, int height) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void onCameraViewStopped() {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public Mat onCameraFrame(Mat inputFrame) {
+		return inputFrame;
 	}
 }
