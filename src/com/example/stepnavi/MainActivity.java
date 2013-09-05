@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.CameraBridgeViewBase;
 import org.opencv.android.CameraBridgeViewBase.CvCameraViewListener;
+import org.opencv.android.JavaCameraView;
 import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
 import org.opencv.core.Mat;
@@ -90,6 +91,14 @@ public class MainActivity extends Activity implements SensorEventListener,
 		mOpenCvCameraView = (CameraBridgeViewBase) findViewById(R.id.HelloOpenCvView);
 		mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
 		mOpenCvCameraView.setCvCameraViewListener(this);
+		mOpenCvCameraView.setOnClickListener(new OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				if (imageProcessor != null){
+					imageProcessor.findNewFeatures();
+				}	
+			}
+		});
 
 		times = new ArrayList<Long>();
 		data = new ArrayList<Float>();
@@ -672,14 +681,10 @@ public class MainActivity extends Activity implements SensorEventListener,
 
 	@Override
 	public void onCameraViewStarted(int width, int height) {
-		// TODO Auto-generated method stub
-
 	}
 
 	@Override
 	public void onCameraViewStopped() {
-		// TODO Auto-generated method stub
-
 	}
 
 	private ImageProcessor imageProcessor = null;
