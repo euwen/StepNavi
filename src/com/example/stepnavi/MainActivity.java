@@ -19,6 +19,7 @@ import org.opencv.core.Mat;
 
 import android.app.Activity;
 import android.content.Context;
+import android.graphics.Color;
 import android.graphics.Typeface;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -168,7 +169,7 @@ public class MainActivity extends Activity implements SensorEventListener,
 					mGyro = null;
 					mLin = new float[3];
 					movingAvg = 0;
-					thread.start();
+					//thread.start();
 					toggleCalib.setEnabled(false);
 				}
 			}
@@ -183,6 +184,8 @@ public class MainActivity extends Activity implements SensorEventListener,
 		thread = new UpdaterThread(this);
 		madgwick = new MadgwickAHRS();
 		madgwick.setSampleFreq(SAMPLE_FREQ);
+		
+		thread.start();
 	}
 
 	public static final int NUM = 15;
@@ -253,6 +256,7 @@ public class MainActivity extends Activity implements SensorEventListener,
 
 	private float[] mAnglesA = new float[3];
 	private float[] mQuaternionA = new float[4];
+	private float[] mQuaternionM = new float[4];
 	private float[] mAnglesM = new float[3];
 	private float[] mLinear = new float[4];
 	private float[] mLinearWorldM = new float[4];
@@ -293,17 +297,20 @@ public class MainActivity extends Activity implements SensorEventListener,
 		case Sensor.TYPE_ACCELEROMETER:
 			// save acceleration as mAcc
 			synchronized (sync) {
-				if (toggleCalib.isChecked() == true) {
-					AcceleroCalibration.addValues(values);
-				} else if (accCorr != null) {
+				//if (toggleCalib.isChecked() == true) {
+				//	AcceleroCalibration.addValues(values);
+				//} else if (accCorr != null) {
 					mAcc = new float[3];
+					/*
 					mAcc[0] = values[0] - accCorr[0];
 					mAcc[1] = values[1] - accCorr[1];
 					// TODO: What about Z axis?
 					mAcc[2] = values[2];
-
-					mAcc = mFilterAcceleration.filter(mAcc);
-
+					 */
+					
+					mAcc = mFilterAcceleration.filter(values);
+					
+					/*
 					// calculate moving average as mLin
 					mLin[0] = (movingAvg / (movingAvg + 1)) * mLin[0]
 							+ (1 / (movingAvg + 1)) * mAcc[0];
@@ -312,7 +319,8 @@ public class MainActivity extends Activity implements SensorEventListener,
 					mLin[2] = (movingAvg / (movingAvg + 1)) * mLin[2]
 							+ (1 / (movingAvg + 1)) * mAcc[2];
 					movingAvg++;
-				}
+					*/
+				//}
 			}
 
 			break;
@@ -371,6 +379,11 @@ public class MainActivity extends Activity implements SensorEventListener,
 						mActivity.runOnUiThread(new Runnable() {
 							@Override
 							public void run() {
+								if (madgwick.getBeta() >= 0.1){
+									tv1.setBackgroundColor(Color.GRAY);
+								} else {
+									tv1.setBackgroundColor(Color.TRANSPARENT);
+								}
 								tv1.setText("Madgwick X:  "
 										+ (mAnglesM[0] < 0 ? "" : " ")
 										+ new DecimalFormat("000")
@@ -439,8 +452,8 @@ public class MainActivity extends Activity implements SensorEventListener,
 
 	public boolean calculate_AHRS() {
 		magic++;
-		if (magic >= (int) (1000.0f / SAMPLE_FREQ) * 5) {
-			madgwick.setBeta(0.03f);
+		if (magic >= (int) (1000.0f / SAMPLE_FREQ) * 10) {
+			madgwick.setBeta(0.005f);
 		}
 
 		float[] angles = null;
@@ -453,7 +466,7 @@ public class MainActivity extends Activity implements SensorEventListener,
 				// #1 way
 				float[] rotMatrixA = new float[16];
 				float[] rotMatrixAtemp = new float[16];
-				SensorManager.getRotationMatrix(rotMatrixAtemp, null, mAcc,
+				SensorManager.getRotationMatrix(rotMatrixAtemp, null, mGra,
 						mGeo);
 				// SensorManager.remapCoordinateSystem(rotMatrixAtemp,
 				// SensorManager.AXIS_X, SensorManager.AXIS_Y, rotMatrixA);
@@ -466,11 +479,13 @@ public class MainActivity extends Activity implements SensorEventListener,
 				float[] rotMatrixM = null;
 				if (mGyro != null) {
 					madgwick.MadgwickAHRSupdate(mGyro[0], mGyro[1], mGyro[2],
-							mLin[0], mLin[1], mLin[2], mGeo[0], mGeo[1],
+							//mLin[0], mLin[1], mLin[2], mGeo[0], mGeo[1],
+							mAcc[0], mAcc[1], mAcc[2], mGeo[0], mGeo[1],							
 							mGeo[2]);
 					angles = madgwick.getEulerAngles();
 					mAnglesM = angles;
 					rotMatrixM = madgwick.getMatrix4();
+					mQuaternionM = madgwick.getQuaternion();
 				}
 
 				// -----------------------------------------------------------------------
@@ -555,15 +570,29 @@ public class MainActivity extends Activity implements SensorEventListener,
 					 * OSCMessage("/data/angles/A", args);
 					 */
 
-					Object args[] = new Object[4];
-					args[0] = Float.valueOf(mQuaternionA[0]);
-					args[1] = Float.valueOf(mQuaternionA[1]);
-					args[2] = Float.valueOf(mQuaternionA[2]);
-					args[3] = Float.valueOf(mQuaternionA[3]);
-					OSCMessage msg = new OSCMessage("/data/quaternion/A", args);
+					Object args1[] = new Object[4];
+					args1[0] = Float.valueOf(mQuaternionA[0]);
+					args1[1] = Float.valueOf(mQuaternionA[1]);
+					args1[2] = Float.valueOf(mQuaternionA[2]);
+					args1[3] = Float.valueOf(mQuaternionA[3]);
+					OSCMessage msg1 = new OSCMessage("/data/quaternion/A", args1);
 
 					try {
-						sender.send(msg);
+						sender.send(msg1);
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+					
+					Object args2[] = new Object[4];
+					args2[0] = Float.valueOf(mQuaternionM[0]);
+					args2[1] = Float.valueOf(mQuaternionM[1]);
+					args2[2] = Float.valueOf(mQuaternionM[2]);
+					args2[3] = Float.valueOf(mQuaternionM[3]);
+					OSCMessage msg2 = new OSCMessage("/data/quaternion/M", args2);
+
+					try {
+						sender.send(msg2);
 					} catch (IOException e) {
 						// TODO Auto-generated catch block
 						e.printStackTrace();

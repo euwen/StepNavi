@@ -16,7 +16,7 @@ import org.opencv.video.Video;
 
 public class ImageProcessor {
 
-	private static final int FEATURE_COUNT = 200;
+	private static final int FEATURE_COUNT = 100;
 	
 	private static final int STATE_SEARCH = 0;
 	private static final int STATE_MATCH = 1;

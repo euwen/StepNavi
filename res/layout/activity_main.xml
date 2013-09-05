@@ -98,7 +98,9 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:ems="10"
-            android:hint="x.x.x.x" >
+            android:text="152.66.172.151"
+            >
+            <!--             android:hint="x.x.x.x"  -->
 
             <requestFocus />
         </EditText>
