@@ -13,7 +13,6 @@ import java.util.ArrayList;
 import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.CameraBridgeViewBase;
 import org.opencv.android.CameraBridgeViewBase.CvCameraViewListener;
-import org.opencv.android.JavaCameraView;
 import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
 import org.opencv.core.Mat;
@@ -626,8 +625,10 @@ public class MainActivity extends Activity implements SensorEventListener,
 	protected void onPause() {
 		super.onPause();
 		sensorManager.unregisterListener(this);
-		if (mOpenCvCameraView != null)
+		if (mOpenCvCameraView != null){
 			mOpenCvCameraView.disableView();
+		}
+		//imageProcessor.logger.save();
 	}
 
 	@Override
@@ -668,7 +669,7 @@ public class MainActivity extends Activity implements SensorEventListener,
 			case LoaderCallbackInterface.SUCCESS: {
 				Log.i("", "OpenCV loaded successfully");
 				mOpenCvCameraView.enableView();
-				imageProcessor = new ImageProcessor();
+				imageProcessor = new ImageProcessor(getApplicationContext());
 			}
 				break;
 			default: {

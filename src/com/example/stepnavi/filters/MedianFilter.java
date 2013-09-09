@@ -29,7 +29,7 @@ public class MedianFilter {
 		return current;
 	}
 	
-	private void insertShift(float newValue)
+	public void insertShift(float newValue)
 	{
 		// insert at first place
 		window.add(0, newValue);
@@ -82,9 +82,12 @@ public class MedianFilter {
 		return data;
 	}
 	
-	public float filter(float newValue)
+	public float filter(Float newValue)
 	{
-		insertShift(newValue);
+		if (newValue != null)
+		{
+			insertShift(newValue);
+		}
 		float[] data = getSorted();
 		int p = data.length / 2;
 		if ((data.length % 2) == 0)
