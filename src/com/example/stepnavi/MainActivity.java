@@ -74,7 +74,16 @@ public class MainActivity extends Activity implements SensorEventListener,
 	private MadgwickAHRS madgwick;
 	private UpdaterThread thread;
 	private float[] accCorr = null;
-
+	
+	private CsvLogger logger;
+	private static final int LOG_ACC = 0;
+	private static final int LOG_GYRO = 3;
+	private static final int LOG_MAG = 6;
+	private static final int LOG_GRA = 9;
+	private static final int LOG_IMG_AVG = 12;
+	private static final int LOG_IMG_MED = 14;
+	private static final int LOG_IMG_ANG = 16;
+	
 	private static OSCPortOut sender = null;
 
 	private CameraBridgeViewBase mOpenCvCameraView = null;
@@ -86,7 +95,9 @@ public class MainActivity extends Activity implements SensorEventListener,
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);
-
+		
+		logger = new CsvLogger(getApplicationContext(), "log_S4_");
+		
 		mOpenCvCameraView = (CameraBridgeViewBase) findViewById(R.id.HelloOpenCvView);
 		mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
 		mOpenCvCameraView.setCvCameraViewListener(this);
@@ -144,6 +155,7 @@ public class MainActivity extends Activity implements SensorEventListener,
 			public void onCheckedChanged(CompoundButton buttonView,
 					boolean isChecked) {
 				if (isChecked) {
+					/*
 					times.clear();
 					data.clear();
 					velDataX.clear();
@@ -154,9 +166,14 @@ public class MainActivity extends Activity implements SensorEventListener,
 					velDataZsm.clear();
 					isRecording = true;
 					begin = System.currentTimeMillis();
+					*/
+					logger = new CsvLogger(getApplicationContext(), "log_S4_");
 				} else {
+					/*
 					writeData();
 					isRecording = false;
+					*/
+					logger.save();
 				}
 			}
 		});
@@ -193,7 +210,7 @@ public class MainActivity extends Activity implements SensorEventListener,
 		madgwick = new MadgwickAHRS();
 		madgwick.setSampleFreq(SAMPLE_FREQ);
 		
-		thread.start();
+		//thread.start();
 	}
 
 	public static final int NUM = 15;
@@ -305,6 +322,7 @@ public class MainActivity extends Activity implements SensorEventListener,
 		case Sensor.TYPE_ACCELEROMETER:
 			// save acceleration as mAcc
 			synchronized (sync) {
+				logger.add(LOG_ACC, values);
 				//if (toggleCalib.isChecked() == true) {
 				//	AcceleroCalibration.addValues(values);
 				//} else if (accCorr != null) {
@@ -334,6 +352,7 @@ public class MainActivity extends Activity implements SensorEventListener,
 			break;
 		case Sensor.TYPE_GRAVITY:
 			synchronized (sync) {
+				logger.add(LOG_GRA, values);
 				if (mGra == null) {
 					mGra = mFilterGravity.filter(values);
 				}
@@ -341,6 +360,7 @@ public class MainActivity extends Activity implements SensorEventListener,
 			break;
 		case Sensor.TYPE_GYROSCOPE:
 			synchronized (sync) {
+				logger.add(LOG_GYRO, values);
 				if (mGyro == null) {
 					mGyro = mFilterGyroscope.filter(values);
 				}
@@ -348,6 +368,7 @@ public class MainActivity extends Activity implements SensorEventListener,
 			break;
 		case Sensor.TYPE_MAGNETIC_FIELD:
 			synchronized (sync) {
+				logger.add(LOG_MAG, values);
 				if (mGeo == null) {
 					mGeo = mFilterMagnetic.filter(values);
 				}
@@ -693,6 +714,9 @@ public class MainActivity extends Activity implements SensorEventListener,
 	public Mat onCameraFrame(Mat inputFrame) {
 		if (imageProcessor != null){
 			imageProcessor.process(inputFrame);
+			logger.add(LOG_IMG_AVG, imageProcessor.getMovementAverage(), false);
+			logger.add(LOG_IMG_MED, imageProcessor.getMovementMedian(), true);
+			logger.add(LOG_IMG_ANG, imageProcessor.getMovementAngleLength(), true);
 		}
 		return inputFrame;
 	}

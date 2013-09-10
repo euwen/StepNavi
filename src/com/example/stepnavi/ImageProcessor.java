@@ -44,6 +44,10 @@ public class ImageProcessor {
 	
 	private int state = STATE_SEARCH;
 	
+	private float avgX=0, avgY=0;
+	private float medX=0, medY=0;
+	private float angX=0, angY=0;
+	
 	//private ArrayList<Integer> search = new ArrayList<Integer>();
 	//private ArrayList<Integer> match = new ArrayList<Integer>();
 	//private ArrayList<Float> found = new ArrayList<Float>();
@@ -68,14 +72,14 @@ public class ImageProcessor {
 		}
 
 		if (state == STATE_SEARCH){
-			this.search();
+			this.search(inputFrame);
 		}
 		else if (state == STATE_MATCH){
 			this.match(inputFrame);
 		}
 	}
 	
-	private void search(){
+	private void search(Mat inputFrame){
 		// Make place for the points
 		TimeMeasure tm = new TimeMeasure(true);
 		Point[] pointsArray = new Point[FEATURE_COUNT];
@@ -103,7 +107,12 @@ public class ImageProcessor {
 		prevFrame = currentFrame.clone();
 		currentPoints = new MatOfPoint2f(prevPoints.toArray());
 		state = STATE_MATCH;
-		Log.d(this.getClass().getSimpleName(), "Searched finish needed: " + tm.getDelta());
+		Log.d(this.getClass().getSimpleName(), "Searched TOTAL: " + tm.getSinceBeginning(false));
+		Scalar color = new Scalar(255, 0, 0);
+		Core.line(inputFrame, 
+				new Point( 100, 100), 
+				new Point( 101, 101), 
+				color, 32);
 	}
 	
 	private void match(Mat inputFrame){
@@ -159,26 +168,30 @@ public class ImageProcessor {
 					new Point(to[i].x/ratio, to[i].y/ratio), 
 					color1, 2);
 		}
-		X /= goodCount;
-		Y /= goodCount;
+		avgX = X / goodCount;
+		avgY = Y / goodCount;
+		medX = medianX.filter(null);
+		medY = medianY.filter(null);
+		float l = medianL.filter(null);
+		float a = medianA.filter(null);
+		angX = (float)Math.sin(a)*l;
+		angY = (float)Math.cos(a)*l;
 		int w = inputFrame.width();
 		int h = inputFrame.height();
 		int d = inputFrame.height() / 6;
 		Core.line(inputFrame, 
 				new Point( w/2, h/2  + d*-1), 
-				new Point( w/2 + X/ratio, h/2 + d*-1 + Y/ratio), 
+				new Point( w/2 + avgX/ratio, h/2 + d*-1 + avgY/ratio), 
 				color2, 10);
 		Core.line(inputFrame, 
 				new Point( w/2, h/2  + d*0), 
-				new Point( w/2 + (medianX.filter(null))/ratio, h/2  + d*0 + (medianY.filter(null))/ratio), 
+				new Point( w/2 + medX/ratio, h/2  + d*0 + medY/ratio), 
 				color2, 10);			
-		float l = medianL.filter(null);
-		float a = medianA.filter(null);
 		Core.line(inputFrame, 
 				new Point( w/2, h/2  + d*1), 
-				new Point( w/2 + Math.sin(a)*l/ratio, h/2 + d*1 + Math.cos(a)*l/ratio), 
+				new Point( w/2 + angX/ratio, h/2 + d*1 + angY/ratio), 
 				color2, 10);	
-		Log.d(this.getClass().getSimpleName(), "Match finish needed: " + tm.getDelta());
+		Log.d(this.getClass().getSimpleName(), "Match TOTAL: " + tm.getSinceBeginning(false));
 		//logger.times.add((long)cnt++);
 		//logger.data.add((float)temp);
 		//logger.data.add((float)howGood);
@@ -186,11 +199,35 @@ public class ImageProcessor {
 		
 		if (howGood < 0.5f){
 			state = STATE_SEARCH;
-			this.search();
+			this.search(inputFrame);
 		} else {
 			prevFrame = currentFrame.clone();
 			prevPoints = currentPoints;
 		}
+	}
+	
+	public float[] getMovementAverage()
+	{
+		float[] res = new float[2];
+		res[0] = avgX;
+		res[1] = avgY;
+		return res;
+	}
+	
+	public float[] getMovementMedian()
+	{
+		float[] res = new float[2];
+		res[0] = medX;
+		res[1] = medY;
+		return res;
+	}
+	
+	public float[] getMovementAngleLength()
+	{
+		float[] res = new float[2];
+		res[0] = angX;
+		res[1] = angY;
+		return res;
 	}
 	
 	public void init( Mat input){

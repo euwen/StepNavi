@@ -84,20 +84,24 @@ public class MedianFilter {
 	
 	public float filter(Float newValue)
 	{
-		if (newValue != null)
-		{
-			insertShift(newValue);
+		try{
+			if (newValue != null)
+			{
+				insertShift(newValue);
+			}
+			float[] data = getSorted();
+			int p = data.length / 2;
+			if ((data.length % 2) == 0)
+			{
+				current = (data[p] + data[p+1]) / 2;
+			}
+			else
+			{
+				current = data[p+1];
+			}
+			return current;
+		} catch (IndexOutOfBoundsException e){
+			return 0;
 		}
-		float[] data = getSorted();
-		int p = data.length / 2;
-		if ((data.length % 2) == 0)
-		{
-			current = (data[p] + data[p+1]) / 2;
-		}
-		else
-		{
-			current = data[p+1];
-		}
-		return current;
 	}
 }
