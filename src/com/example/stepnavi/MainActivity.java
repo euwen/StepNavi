@@ -104,7 +104,7 @@ public class MainActivity extends Activity implements SensorEventListener,
 			@Override
 			public void onClick(View v) {
 				if (imageProcessor != null){
-					imageProcessor.findNewFeatures();
+					//imageProcessor.findNewFeatures();
 				}	
 			}
 		});
@@ -698,7 +698,7 @@ public class MainActivity extends Activity implements SensorEventListener,
 			case LoaderCallbackInterface.SUCCESS: {
 				Log.i("", "OpenCV loaded successfully");
 				mOpenCvCameraView.enableView();
-				imageProcessor = new ImageProcessor(getApplicationContext());
+				imageProcessor = new ImageProcessor();
 			}
 				break;
 			default: {
@@ -722,10 +722,10 @@ public class MainActivity extends Activity implements SensorEventListener,
 	public Mat onCameraFrame(Mat inputFrame) {
 		
 		if (imageProcessor != null){
-			imageProcessor.process(inputFrame);
-			logger.add(LOG_IMG_AVG, imageProcessor.getMovementAverage(), false);
+			imageProcessor.process2(inputFrame);
+			//logger.add(LOG_IMG_AVG, imageProcessor.getMovementAverage(), false);
 			logger.add(LOG_IMG_MED, imageProcessor.getMovementMedian(), true);
-			logger.add(LOG_IMG_ANG, imageProcessor.getMovementAngleLength(), true);
+			//logger.add(LOG_IMG_ANG, imageProcessor.getMovementAngleLength(), true);
 		}
 		
 		return inputFrame;

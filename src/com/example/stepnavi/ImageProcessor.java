@@ -5,7 +5,6 @@ import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfByte;
 import org.opencv.core.MatOfFloat;
-import org.opencv.core.MatOfPoint;
 import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
 import org.opencv.core.Scalar;
@@ -14,24 +13,24 @@ import org.opencv.core.TermCriteria;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.video.Video;
 
-import android.content.Context;
 import android.util.Log;
 
 import com.example.stepnavi.filters.MedianFilter;
 
 public class ImageProcessor {
 
-	private boolean USE_RESIZE = true;
-	private float RESIZE_WIDTH = 640.0f;
-	private static final int FEATURE_COUNT = 100;
+	//private boolean USE_RESIZE = true;
+	private float RESIZE_WIDTH = 240.0f;
+	private static final int FEATURE_MATRIX_WIDTH = 16;
+	private static final int FEATURE_MATRIX_HEIGHT = 16;
 	
-	private static final int STATE_SEARCH = 0;
-	private static final int STATE_MATCH = 1;
+	//private static final int STATE_SEARCH = 0;
+	//private static final int STATE_MATCH = 1;
 	
 	private Mat prevFrame = null;
 	private Mat currentFrame = null;
 	private Mat tempFrame = null;
-	private MatOfPoint tempPoints = null;
+	//private MatOfPoint tempPoints = null;
 	private MatOfPoint2f prevPoints = null;
 	private MatOfPoint2f currentPoints = null;
 	private MatOfByte status = new MatOfByte();
@@ -39,29 +38,117 @@ public class ImageProcessor {
 	private Size window = new Size(10.0, 10.0);
 	private TermCriteria criteria = new TermCriteria(TermCriteria.COUNT+TermCriteria.EPS, 10, 0.3);
 	
-	private Size workSize = null;
-	private float ratio = 1.0f;
+	//private Size workSize = null;
+	//private float ratio = 1.0f;
 	
-	private int state = STATE_SEARCH;
+	//private int state = STATE_SEARCH;
 	
-	private float avgX=0, avgY=0;
+	//private float avgX=0, avgY=0;
 	private float medX=0, medY=0;
-	private float angX=0, angY=0;
-	
-	//private ArrayList<Integer> search = new ArrayList<Integer>();
-	//private ArrayList<Integer> match = new ArrayList<Integer>();
-	//private ArrayList<Float> found = new ArrayList<Float>();
-	
-	//public CsvLogger logger;
-	//private int cnt;
+	//private float angX=0, angY=0;
 	
 	TimeMeasure tm;
 	
+	/*
 	public ImageProcessor(Context c){
 		//cnt = 0;
 		//logger = new CsvLogger(c, 2, "match");
 	}
+	*/
 	
+	public void process2(Mat input){
+		
+		float ratio = RESIZE_WIDTH / input.width();
+		Size s = new Size(input.width()*ratio, input.height()*ratio);
+		tempFrame = new Mat(s, input.type());
+		currentFrame = new Mat(s, CvType.CV_8U);
+		Imgproc.resize(input, tempFrame, s);
+		Imgproc.cvtColor(tempFrame, currentFrame, Imgproc.COLOR_RGB2GRAY);
+		
+		if (prevFrame == null)
+		{
+			tm = new TimeMeasure(true);
+			prevFrame = new Mat(currentFrame.rows(), currentFrame.cols(), currentFrame.type());
+			currentFrame.copyTo(prevFrame);
+			
+			// Make place for the points
+			Point[] pointsArray = new Point[FEATURE_MATRIX_WIDTH*FEATURE_MATRIX_HEIGHT];
+			int stepX = currentFrame.width()/(FEATURE_MATRIX_WIDTH+1);
+			int stepY = currentFrame.height()/(FEATURE_MATRIX_HEIGHT+1);
+			for (int i=0; i<FEATURE_MATRIX_WIDTH; i++){
+				for (int j=0; j<FEATURE_MATRIX_HEIGHT; j++){
+					pointsArray[i*FEATURE_MATRIX_WIDTH+j] = 
+							new Point(i*stepX+stepX, j*stepY+stepY);
+				}
+			}
+			prevPoints = new MatOfPoint2f(pointsArray);
+		}
+		currentPoints = new MatOfPoint2f(); 
+		
+		Video.calcOpticalFlowPyrLK(
+				prevFrame, 
+				currentFrame, 
+				prevPoints, 
+				currentPoints, 
+				status, 
+				error
+		);
+		
+		long temp = tm.getDelta();
+		Log.d(this.getClass().getSimpleName(), "Delta: " + temp + " Length: " + Math.sqrt(medX*medX + medY*medY));
+		
+		byte[] statuses = status.toArray();
+		int goodCount = 0;
+		for (int i=0; i< statuses.length; i++){
+			if (statuses[i] == 0) continue;
+			goodCount++;
+		}
+		float howGood = (float)goodCount / (float)(FEATURE_MATRIX_WIDTH*FEATURE_MATRIX_HEIGHT);
+		
+		MedianFilter medianX = new MedianFilter(goodCount);
+		MedianFilter medianY = new MedianFilter(goodCount);
+		Point[] from = prevPoints.toArray();
+		Point[] to = currentPoints.toArray();
+		Scalar color1 = new Scalar(255, 128, 32);
+		Scalar color2 = new Scalar(64, 255, 0);
+		for (int i=0; i< statuses.length; i++){
+			if (statuses[i] == 0) continue;
+			medianX.insertShift((float)(to[i].x-from[i].x));
+			medianY.insertShift((float)(to[i].y-from[i].y));
+			Core.line(input, 
+					new Point(from[i].x/ratio, from[i].y/ratio), 
+					new Point(to[i].x/ratio, to[i].y/ratio), 
+					color1, 2);
+		}
+		medX = medianX.filter(null);
+		medY = medianY.filter(null);
+		int w = input.width();
+		int h = input.height();
+		int d = input.height() / 6;
+		Core.line(input, 
+				new Point( w/2, h/2  + d*-1), 
+				new Point( w/2 + medX/ratio, h/2 + d*-1 + medY/ratio), 
+				color2, 10);
+		
+		currentPoints.copyTo(prevPoints);
+		currentFrame.copyTo(prevFrame);
+		
+		if (howGood <= 0.65){
+			// Make place for the points
+			Point[] pointsArray = new Point[FEATURE_MATRIX_WIDTH*FEATURE_MATRIX_HEIGHT];
+			int stepX = currentFrame.width()/(FEATURE_MATRIX_WIDTH+1);
+			int stepY = currentFrame.height()/(FEATURE_MATRIX_HEIGHT+1);
+			for (int i=0; i<FEATURE_MATRIX_WIDTH; i++){
+				for (int j=0; j<FEATURE_MATRIX_HEIGHT; j++){
+					pointsArray[i*FEATURE_MATRIX_WIDTH+j] = 
+							new Point(i*stepX+stepX, j*stepY+stepY);
+				}
+			}
+			prevPoints = new MatOfPoint2f(pointsArray);
+		}
+	}
+	
+	/*
 	public void process(Mat inputFrame){
 		if (workSize == null){
 			init(inputFrame);
@@ -209,7 +296,9 @@ public class ImageProcessor {
 			prevPoints.fromArray(currentPoints.toArray());
 		}
 	}
+	*/
 	
+	/*
 	public float[] getMovementAverage()
 	{
 		float[] res = new float[2];
@@ -217,6 +306,7 @@ public class ImageProcessor {
 		res[1] = avgY;
 		return res;
 	}
+	*/
 	
 	public float[] getMovementMedian()
 	{
@@ -226,6 +316,7 @@ public class ImageProcessor {
 		return res;
 	}
 	
+	/*
 	public float[] getMovementAngleLength()
 	{
 		float[] res = new float[2];
@@ -233,7 +324,9 @@ public class ImageProcessor {
 		res[1] = angY;
 		return res;
 	}
+	*/
 	
+	/*
 	public void init( Mat input){
 		tm = new TimeMeasure(true);
 		float newWidth = RESIZE_WIDTH;
@@ -257,4 +350,5 @@ public class ImageProcessor {
 	public void findNewFeatures(){
 		state = STATE_SEARCH;
 	}
+	*/
 }
