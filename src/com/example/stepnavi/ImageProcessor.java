@@ -22,7 +22,7 @@ import com.example.stepnavi.filters.MedianFilter;
 public class ImageProcessor {
 
 	private boolean USE_RESIZE = true;
-	private float RESIZE_WIDTH = 320.0f;
+	private float RESIZE_WIDTH = 640.0f;
 	private static final int FEATURE_COUNT = 100;
 	
 	private static final int STATE_SEARCH = 0;
@@ -36,8 +36,8 @@ public class ImageProcessor {
 	private MatOfPoint2f currentPoints = null;
 	private MatOfByte status = new MatOfByte();
 	private MatOfFloat error = new MatOfFloat();
-	private Size window = new Size(3.0, 3.0);
-	private TermCriteria criteria = new TermCriteria(TermCriteria.COUNT+TermCriteria.EPS, 20, 0.3);
+	private Size window = new Size(10.0, 10.0);
+	private TermCriteria criteria = new TermCriteria(TermCriteria.COUNT+TermCriteria.EPS, 10, 0.3);
 	
 	private Size workSize = null;
 	private float ratio = 1.0f;
@@ -55,6 +55,8 @@ public class ImageProcessor {
 	//public CsvLogger logger;
 	//private int cnt;
 	
+	TimeMeasure tm;
+	
 	public ImageProcessor(Context c){
 		//cnt = 0;
 		//logger = new CsvLogger(c, 2, "match");
@@ -70,44 +72,45 @@ public class ImageProcessor {
 		} else {
 			Imgproc.cvtColor(inputFrame, currentFrame, Imgproc.COLOR_RGB2GRAY);
 		}
-
+		
 		if (state == STATE_SEARCH){
 			this.search(inputFrame);
+			return;
 		}
 		else if (state == STATE_MATCH){
 			this.match(inputFrame);
+			return;
 		}
+		
 	}
 	
 	private void search(Mat inputFrame){
 		// Make place for the points
-		TimeMeasure tm = new TimeMeasure(true);
 		Point[] pointsArray = new Point[FEATURE_COUNT];
 		for (int i=0; i<FEATURE_COUNT; i++){
 			pointsArray[i] = new Point(0, 0);
 		}
 		tempPoints = new MatOfPoint(pointsArray);
-		//Log.d(this.getClass().getSimpleName(), "Searched init needed: " + tm.getDelta());
 		// Search!
 		Imgproc.goodFeaturesToTrack(
 				currentFrame, 	// the image
 				tempPoints, 	// the output detected features
 				FEATURE_COUNT,	// the maximum number of features
 				0.01, 			// quality level
-				1.00 			// min distance between two features
+				10.0 			// min distance between two features
 		);
-		long temp = tm.getDelta();
-		//search.add((int) temp);
-		Log.d(this.getClass().getSimpleName(), "Searched work needed: " + temp);
+		
+		Log.d(this.getClass().getSimpleName(), "Keresés...");
 		if ((tempPoints.size().width <= 0) || (tempPoints.size().height <= 0)){
+			Log.d(this.getClass().getSimpleName(), "Baj van!");
 			return;
 		}
 		// init variables for match
 		prevPoints = new MatOfPoint2f(tempPoints.toArray());
-		prevFrame = currentFrame.clone();
-		currentPoints = new MatOfPoint2f(prevPoints.toArray());
+		prevFrame = new Mat(currentFrame.rows(), currentFrame.cols(), currentFrame.type());
+		currentFrame.copyTo(prevFrame);
+		//currentPoints = new MatOfPoint2f(tempPoints.toArray());
 		state = STATE_MATCH;
-		Log.d(this.getClass().getSimpleName(), "Searched TOTAL: " + tm.getSinceBeginning(false));
 		Scalar color = new Scalar(255, 0, 0);
 		Core.line(inputFrame, 
 				new Point( 100, 100), 
@@ -116,7 +119,7 @@ public class ImageProcessor {
 	}
 	
 	private void match(Mat inputFrame){
-		TimeMeasure tm = new TimeMeasure(true);
+		
 		currentPoints = new MatOfPoint2f();
 		// Match
 		Video.calcOpticalFlowPyrLK(
@@ -130,11 +133,9 @@ public class ImageProcessor {
 				5, 					// 0-based maximal pyramid level number
 				criteria, 			// the termination criteria of the iterative search 
 				0, 					// flags 
-				0.0001				// minEigThreshold 
+				0.001				// minEigThreshold 
 		);
-		long temp = tm.getDelta();
-		//search.add((int) temp);
-		Log.d(this.getClass().getSimpleName(), "Match work needed: " + temp);
+
 		// Create a few variable
 		byte[] statuses = status.toArray();
 		Point[] from = prevPoints.toArray();
@@ -170,6 +171,9 @@ public class ImageProcessor {
 		}
 		avgX = X / goodCount;
 		avgY = Y / goodCount;
+		if (avgX == 0){
+			Log.d("aha", "nulla");
+		}
 		medX = medianX.filter(null);
 		medY = medianY.filter(null);
 		float l = medianL.filter(null);
@@ -191,18 +195,18 @@ public class ImageProcessor {
 				new Point( w/2, h/2  + d*1), 
 				new Point( w/2 + angX/ratio, h/2 + d*1 + angY/ratio), 
 				color2, 10);	
-		Log.d(this.getClass().getSimpleName(), "Match TOTAL: " + tm.getSinceBeginning(false));
-		//logger.times.add((long)cnt++);
-		//logger.data.add((float)temp);
-		//logger.data.add((float)howGood);
-		//found.add(howGood);
+		//Log.d(this.getClass().getSimpleName(), "HowGood: " + howGood + " Length X: " + avgX + " Y: " + avgY);
+		
+		long temp = tm.getDelta();
+		Log.d(this.getClass().getSimpleName(), "Delta: " + temp + " Length: " + Math.sqrt(medX*medX + medY*medY));
 		
 		if (howGood < 0.5f){
 			state = STATE_SEARCH;
 			this.search(inputFrame);
 		} else {
-			prevFrame = currentFrame.clone();
-			prevPoints = currentPoints;
+			prevFrame = new Mat(currentFrame.rows(), currentFrame.cols(), currentFrame.type());
+			currentFrame.copyTo(prevFrame);
+			prevPoints.fromArray(currentPoints.toArray());
 		}
 	}
 	
@@ -231,9 +235,16 @@ public class ImageProcessor {
 	}
 	
 	public void init( Mat input){
+		tm = new TimeMeasure(true);
 		float newWidth = RESIZE_WIDTH;
-		ratio = newWidth / (float)input.width();
-		float newHeight = ratio*(float)input.height();
+		float newHeight = 0;
+		if (newWidth < input.width()){
+			ratio = newWidth / (float)input.width();
+			newHeight = ratio*(float)input.height();
+		} else {
+			ratio = 1.0f;
+			newHeight = input.height();
+		}
 		workSize = new Size(newWidth, newHeight);
 		if (USE_RESIZE == true){
 			tempFrame = new Mat(workSize, input.type());

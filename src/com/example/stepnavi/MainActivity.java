@@ -3,7 +3,6 @@ package com.example.stepnavi;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
-import java.io.IOException;
 import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
@@ -43,7 +42,6 @@ import com.example.stepnavi.filters.ADKFilter;
 import com.example.stepnavi.filters.HighPassFilterMulti;
 import com.example.stepnavi.filters.LowPassFilterMulti;
 import com.example.stepnavi.filters.MedianFilterMulti;
-import com.illposed.osc.OSCMessage;
 import com.illposed.osc.OSCPortOut;
 
 public class MainActivity extends Activity implements SensorEventListener,
@@ -87,7 +85,8 @@ public class MainActivity extends Activity implements SensorEventListener,
 	private static OSCPortOut sender = null;
 
 	private CameraBridgeViewBase mOpenCvCameraView = null;
-
+	//private ImageView preview = null;
+	
 	private TextView ipText;
 	private Button buttonConnect;
 
@@ -109,6 +108,7 @@ public class MainActivity extends Activity implements SensorEventListener,
 				}	
 			}
 		});
+		//preview = (ImageView) findViewById(R.id.preview);
 
 		times = new ArrayList<Long>();
 		data = new ArrayList<Float>();
@@ -210,7 +210,8 @@ public class MainActivity extends Activity implements SensorEventListener,
 		madgwick = new MadgwickAHRS();
 		madgwick.setSampleFreq(SAMPLE_FREQ);
 		
-		//thread.start();
+		sync = new Object();
+		thread.start();
 	}
 
 	public static final int NUM = 15;
@@ -272,7 +273,7 @@ public class MainActivity extends Activity implements SensorEventListener,
 
 	}
 
-	public Object sync = new Object();
+	public Object sync;
 	private float[] mAcc = null;
 	private float[] mGra = null;
 	private float[] mGeo = null;
@@ -322,7 +323,7 @@ public class MainActivity extends Activity implements SensorEventListener,
 		case Sensor.TYPE_ACCELEROMETER:
 			// save acceleration as mAcc
 			synchronized (sync) {
-				logger.add(LOG_ACC, values);
+				
 				//if (toggleCalib.isChecked() == true) {
 				//	AcceleroCalibration.addValues(values);
 				//} else if (accCorr != null) {
@@ -352,7 +353,6 @@ public class MainActivity extends Activity implements SensorEventListener,
 			break;
 		case Sensor.TYPE_GRAVITY:
 			synchronized (sync) {
-				logger.add(LOG_GRA, values);
 				if (mGra == null) {
 					mGra = mFilterGravity.filter(values);
 				}
@@ -360,7 +360,6 @@ public class MainActivity extends Activity implements SensorEventListener,
 			break;
 		case Sensor.TYPE_GYROSCOPE:
 			synchronized (sync) {
-				logger.add(LOG_GYRO, values);
 				if (mGyro == null) {
 					mGyro = mFilterGyroscope.filter(values);
 				}
@@ -368,7 +367,6 @@ public class MainActivity extends Activity implements SensorEventListener,
 			break;
 		case Sensor.TYPE_MAGNETIC_FIELD:
 			synchronized (sync) {
-				logger.add(LOG_MAG, values);
 				if (mGeo == null) {
 					mGeo = mFilterMagnetic.filter(values);
 				}
@@ -489,8 +487,16 @@ public class MainActivity extends Activity implements SensorEventListener,
 		synchronized (sync) {
 			// if ((mAcc != null) && (mGeo != null) && (mGyro != null) && (mLin
 			// != null))
-			if ((mAcc != null) && (mGeo != null) && (mLin != null)
+			if ((mAcc != null) && (mGeo != null) && (mGyro != null)
 					&& (mGra != null)) {
+				
+				logger.add(LOG_ACC, mAcc, false);
+				logger.add(LOG_GYRO, mGyro, true);
+				logger.add(LOG_GYRO, mGeo, true);
+				logger.add(LOG_GYRO, mGra, true);
+				
+				/*
+				
 				// -----------------------------------------------------------------------
 				// #1 way
 				float[] rotMatrixA = new float[16];
@@ -591,14 +597,13 @@ public class MainActivity extends Activity implements SensorEventListener,
 				// -----------------------------------------------------------------------
 				// Send to remote
 				if (sender != null) {
-					/*
-					 * Object args[] = new Object[3]; args[0] =
-					 * Float.valueOf(mAnglesA[0]); args[1] =
-					 * Float.valueOf(mAnglesA[1]); args[2] =
-					 * Float.valueOf(mAnglesA[2]); OSCMessage msg = new
-					 * OSCMessage("/data/angles/A", args);
-					 */
-
+					
+					// Object args[] = new Object[3]; args[0] =
+					// Float.valueOf(mAnglesA[0]); args[1] =
+					// Float.valueOf(mAnglesA[1]); args[2] =
+					// Float.valueOf(mAnglesA[2]); OSCMessage msg = new
+					// OSCMessage("/data/angles/A", args);
+					
 					Object args1[] = new Object[4];
 					args1[0] = Float.valueOf(mQuaternionA[0]);
 					args1[1] = Float.valueOf(mQuaternionA[1]);
@@ -627,6 +632,9 @@ public class MainActivity extends Activity implements SensorEventListener,
 						e.printStackTrace();
 					}
 				}
+				
+				
+				*/
 
 				// -----------------------------------------------------------------------
 				// Clear
@@ -712,12 +720,15 @@ public class MainActivity extends Activity implements SensorEventListener,
 	private ImageProcessor imageProcessor = null;
 	@Override
 	public Mat onCameraFrame(Mat inputFrame) {
+		
 		if (imageProcessor != null){
 			imageProcessor.process(inputFrame);
 			logger.add(LOG_IMG_AVG, imageProcessor.getMovementAverage(), false);
 			logger.add(LOG_IMG_MED, imageProcessor.getMovementMedian(), true);
 			logger.add(LOG_IMG_ANG, imageProcessor.getMovementAngleLength(), true);
 		}
+		
 		return inputFrame;
+		
 	}
 }

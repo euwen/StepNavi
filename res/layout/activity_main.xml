@@ -80,6 +80,13 @@
         android:visibility="gone"
         opencv:camera_id="any"
         opencv:show_fps="true" />
+    
+<!--     <ImageView  -->
+<!--         android:id="@+id/preview" -->
+<!--         android:layout_width="fill_parent" -->
+<!--         android:layout_height="wrap_content" -->
+<!--         android:layout_weight="1" -->
+<!--         /> -->
 
     <LinearLayout
         android:layout_width="fill_parent"
