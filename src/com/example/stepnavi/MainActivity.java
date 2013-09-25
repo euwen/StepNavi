@@ -723,8 +723,9 @@ public class MainActivity extends Activity implements SensorEventListener,
 		
 		if (imageProcessor != null){
 			imageProcessor.process2(inputFrame);
+			logger.add(LOG_IMG_MED, imageProcessor.getMovementMedian());
 			//logger.add(LOG_IMG_AVG, imageProcessor.getMovementAverage(), false);
-			logger.add(LOG_IMG_MED, imageProcessor.getMovementMedian(), true);
+			//logger.add(LOG_IMG_MED, imageProcessor.getMovementMedian(), true);
 			//logger.add(LOG_IMG_ANG, imageProcessor.getMovementAngleLength(), true);
 		}
 		

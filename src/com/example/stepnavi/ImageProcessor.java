@@ -95,7 +95,7 @@ public class ImageProcessor {
 		);
 		
 		long temp = tm.getDelta();
-		Log.d(this.getClass().getSimpleName(), "Delta: " + temp + " Length: " + Math.sqrt(medX*medX + medY*medY));
+		Log.d(this.getClass().getSimpleName(), "Delta: " + temp + " LengthX: " + medX  + " LengthY: " + medY);
 		
 		byte[] statuses = status.toArray();
 		int goodCount = 0;
