@@ -73,7 +73,8 @@ public class MainActivity extends Activity implements SensorEventListener,
 	private UpdaterThread thread;
 	private float[] accCorr = null;
 	
-	private CsvLogger logger;
+	private CsvLogger logger1;
+	private CsvLogger logger2;
 	private static final int LOG_ACC = 0;
 	private static final int LOG_GYRO = 3;
 	private static final int LOG_MAG = 6;
@@ -95,7 +96,8 @@ public class MainActivity extends Activity implements SensorEventListener,
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);
 		
-		logger = new CsvLogger(getApplicationContext(), "log_S4_");
+		logger1 = new CsvLogger(getApplicationContext(), "log_S4_imu_");
+		logger2 = new CsvLogger(getApplicationContext(), "log_S4_cam_");
 		
 		mOpenCvCameraView = (CameraBridgeViewBase) findViewById(R.id.HelloOpenCvView);
 		mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
@@ -167,13 +169,15 @@ public class MainActivity extends Activity implements SensorEventListener,
 					isRecording = true;
 					begin = System.currentTimeMillis();
 					*/
-					logger = new CsvLogger(getApplicationContext(), "log_S4_");
+					logger1 = new CsvLogger(getApplicationContext(), "log_S4_imu_");
+					logger2 = new CsvLogger(getApplicationContext(), "log_S4_cam_");
 				} else {
 					/*
 					writeData();
 					isRecording = false;
 					*/
-					logger.save();
+					logger1.save();
+					logger2.save();
 				}
 			}
 		});
@@ -490,10 +494,10 @@ public class MainActivity extends Activity implements SensorEventListener,
 			if ((mAcc != null) && (mGeo != null) && (mGyro != null)
 					&& (mGra != null)) {
 				
-				logger.add(LOG_ACC, mAcc, false);
-				logger.add(LOG_GYRO, mGyro, true);
-				logger.add(LOG_GYRO, mGeo, true);
-				logger.add(LOG_GYRO, mGra, true);
+				logger1.add(LOG_ACC, mAcc, false);
+				logger1.add(LOG_GYRO, mGyro, true);
+				logger1.add(LOG_GYRO, mGeo, true);
+				logger1.add(LOG_GYRO, mGra, true);
 				
 				/*
 				
@@ -723,7 +727,7 @@ public class MainActivity extends Activity implements SensorEventListener,
 		
 		if (imageProcessor != null){
 			imageProcessor.process2(inputFrame);
-			logger.add(LOG_IMG_MED, imageProcessor.getMovementMedian());
+			logger2.add(LOG_IMG_MED, imageProcessor.getMovementMedian());
 			//logger.add(LOG_IMG_AVG, imageProcessor.getMovementAverage(), false);
 			//logger.add(LOG_IMG_MED, imageProcessor.getMovementMedian(), true);
 			//logger.add(LOG_IMG_ANG, imageProcessor.getMovementAngleLength(), true);
