@@ -79,9 +79,9 @@ public class MainActivity extends Activity implements SensorEventListener,
 	private static final int LOG_GYRO = 3;
 	private static final int LOG_MAG = 6;
 	private static final int LOG_GRA = 9;
-	private static final int LOG_IMG_AVG = 12;
-	private static final int LOG_IMG_MED = 14;
-	private static final int LOG_IMG_ANG = 16;
+	private static final int LOG_IMG_MED = 0;
+	private static final int LOG_IMG_ROT1 = 2;
+	private static final int LOG_IMG_ROT2 = 3;
 	
 	private static OSCPortOut sender = null;
 
@@ -491,13 +491,17 @@ public class MainActivity extends Activity implements SensorEventListener,
 		synchronized (sync) {
 			// if ((mAcc != null) && (mGeo != null) && (mGyro != null) && (mLin
 			// != null))
-			if ((mAcc != null) && (mGeo != null) && (mGyro != null)
-					&& (mGra != null)) {
+			if (
+					(mAcc != null) && 
+					(mGeo != null) && 
+					//(mGyro != null) && 
+					(mGra != null)) 
+			{
 				
 				logger1.add(LOG_ACC, mAcc, false);
-				logger1.add(LOG_GYRO, mGyro, true);
-				logger1.add(LOG_GYRO, mGeo, true);
-				logger1.add(LOG_GYRO, mGra, true);
+				//logger1.add(LOG_GYRO, mGyro, true);
+				logger1.add(LOG_MAG, mGeo, true);
+				logger1.add(LOG_GRA, mGra, true);
 				
 				/*
 				
@@ -728,6 +732,8 @@ public class MainActivity extends Activity implements SensorEventListener,
 		if (imageProcessor != null){
 			imageProcessor.process2(inputFrame);
 			logger2.add(LOG_IMG_MED, imageProcessor.getMovementMedian());
+			logger2.add(LOG_IMG_ROT1, imageProcessor.getRotZ1(), true);
+			logger2.add(LOG_IMG_ROT2, imageProcessor.getRotZ2(), true);
 			//logger.add(LOG_IMG_AVG, imageProcessor.getMovementAverage(), false);
 			//logger.add(LOG_IMG_MED, imageProcessor.getMovementMedian(), true);
 			//logger.add(LOG_IMG_ANG, imageProcessor.getMovementAngleLength(), true);

@@ -35,6 +35,17 @@ public class CsvLogger {
 		data.add(value);
 		columns.add(column);
 	}
+	
+	public void add(int column, float value, boolean keepTime) {
+		if (keepTime == false) {
+			add(column, value);
+			return;
+		}
+		checkBeginning();
+		times.add((long) -1);
+		data.add(value);
+		columns.add(column);
+	}
 
 	public void add(int startColumn, float[] values) {
 		checkBeginning();

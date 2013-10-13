@@ -1,5 +1,7 @@
 package com.example.stepnavi;
 
+import java.util.ArrayList;
+
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
@@ -13,6 +15,7 @@ import org.opencv.core.TermCriteria;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.video.Video;
 
+import android.util.FloatMath;
 import android.util.Log;
 
 import com.example.stepnavi.filters.MedianFilter;
@@ -46,6 +49,8 @@ public class ImageProcessor {
 	//private float avgX=0, avgY=0;
 	private float medX=0, medY=0;
 	//private float angX=0, angY=0;
+	private float rotT1  = 0;
+	private float rotT2  = 0;
 	
 	TimeMeasure tm;
 	
@@ -107,21 +112,47 @@ public class ImageProcessor {
 		
 		MedianFilter medianX = new MedianFilter(goodCount);
 		MedianFilter medianY = new MedianFilter(goodCount);
+		ArrayList<Float> thetas = new ArrayList<Float>();
 		Point[] from = prevPoints.toArray();
 		Point[] to = currentPoints.toArray();
 		Scalar color1 = new Scalar(255, 128, 32);
 		Scalar color2 = new Scalar(64, 255, 0);
 		for (int i=0; i< statuses.length; i++){
 			if (statuses[i] == 0) continue;
+			
+			float l1 = FloatMath.sqrt((float) (to[i].x*to[i].x + to[i].y*to[i].y));
+			float l2 = FloatMath.sqrt((float) (from[i].x*from[i].x + from[i].y*from[i].y));
+			// points too close to center wont play
+			if (!((l1 < RESIZE_WIDTH/3) || (l2 < RESIZE_WIDTH/3))){
+				float theta = (float) (Math.atan2(to[i].y/l1,to[i].x/l1) - Math.atan2(from[i].y/l2,from[i].x/l2)) ;
+				if (theta < -Math.PI){
+					theta += 2*Math.PI;
+				}
+				thetas.add(theta);
+			}	
+			
 			medianX.insertShift((float)(to[i].x-from[i].x));
 			medianY.insertShift((float)(to[i].y-from[i].y));
+			/*
 			Core.line(input, 
 					new Point(from[i].x/ratio, from[i].y/ratio), 
 					new Point(to[i].x/ratio, to[i].y/ratio), 
 					color1, 2);
+			*/
 		}
+		
+		MedianFilter medianT = new MedianFilter(thetas.size());
+		float tempR = 0.0f;
+		for (int i=0; i<thetas.size(); i++){
+			medianT.insertShift(thetas.get(i));
+			tempR += thetas.get(i);
+		}
+		rotT1 = medianT.filter(null); 
+		rotT2 = tempR/thetas.size();
+		
 		medX = medianX.filter(null);
 		medY = medianY.filter(null);
+		
 		int w = input.width();
 		int h = input.height();
 		int d = input.height() / 6;
@@ -314,6 +345,15 @@ public class ImageProcessor {
 		res[0] = medX;
 		res[1] = medY;
 		return res;
+	}
+	
+	public float getRotZ1()
+	{
+		return rotT1;
+	}
+	public float getRotZ2()
+	{
+		return rotT2;
 	}
 	
 	/*
