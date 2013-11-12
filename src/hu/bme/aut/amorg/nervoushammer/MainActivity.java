@@ -1,4 +1,9 @@
-package com.example.stepnavi;
+package hu.bme.aut.amorg.nervoushammer;
+
+import hu.bme.aut.amorg.nervoushammer.filters.ADKFilter;
+import hu.bme.aut.amorg.nervoushammer.filters.HighPassFilterMulti;
+import hu.bme.aut.amorg.nervoushammer.filters.LowPassFilterMulti;
+import hu.bme.aut.amorg.nervoushammer.filters.MedianFilterMulti;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -38,11 +43,9 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
 
-import com.example.stepnavi.filters.ADKFilter;
-import com.example.stepnavi.filters.HighPassFilterMulti;
-import com.example.stepnavi.filters.LowPassFilterMulti;
-import com.example.stepnavi.filters.MedianFilterMulti;
 import com.illposed.osc.OSCPortOut;
+
+
 
 public class MainActivity extends Activity implements SensorEventListener,
 		CvCameraViewListener {
@@ -171,6 +174,9 @@ public class MainActivity extends Activity implements SensorEventListener,
 					*/
 					logger1 = new CsvLogger(getApplicationContext(), "log_S4_imu_");
 					logger2 = new CsvLogger(getApplicationContext(), "log_S4_cam_");
+					if (imageProcessor != null){
+						imageProcessor.begin();
+					}
 				} else {
 					/*
 					writeData();
@@ -178,6 +184,9 @@ public class MainActivity extends Activity implements SensorEventListener,
 					*/
 					logger1.save();
 					logger2.save();
+					if (imageProcessor != null){
+						imageProcessor.save();
+					}
 				}
 			}
 		});
@@ -706,7 +715,7 @@ public class MainActivity extends Activity implements SensorEventListener,
 			case LoaderCallbackInterface.SUCCESS: {
 				Log.i("", "OpenCV loaded successfully");
 				mOpenCvCameraView.enableView();
-				imageProcessor = new ImageProcessor();
+				imageProcessor = new ImageProcessor(MainActivity.this);
 			}
 				break;
 			default: {

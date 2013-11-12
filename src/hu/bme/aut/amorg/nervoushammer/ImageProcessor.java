@@ -1,4 +1,6 @@
-package com.example.stepnavi;
+package hu.bme.aut.amorg.nervoushammer;
+
+import hu.bme.aut.amorg.nervoushammer.filters.MedianFilter;
 
 import java.util.ArrayList;
 
@@ -15,10 +17,9 @@ import org.opencv.core.TermCriteria;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.video.Video;
 
+import android.content.Context;
 import android.util.FloatMath;
 import android.util.Log;
-
-import com.example.stepnavi.filters.MedianFilter;
 
 public class ImageProcessor {
 
@@ -51,7 +52,20 @@ public class ImageProcessor {
 	
 	TimeMeasure tm;
 	
+	CsvLogger rawlog = null;
+	Context ctx;
+	
+	
+	public ImageProcessor(Context c)
+	{
+		ctx = c;
+	}
+	
 	public void process2(Mat input){
+		
+		if (rawlog == null){
+			rawlog = new CsvLogger(ctx, "log_S4_raw_");
+		}
 		
 		float ratio = RESIZE_WIDTH / input.width();
 		Size s = new Size(input.width()*ratio, input.height()*ratio);
@@ -107,28 +121,37 @@ public class ImageProcessor {
 		Point[] to = currentPoints.toArray();
 		Scalar color1 = new Scalar(255, 128, 32);
 		Scalar color2 = new Scalar(64, 255, 0);
+		rawlog.add(0, howGood);
 		for (int i=0; i< statuses.length; i++){
-			if (statuses[i] == 0) continue;
+			if (statuses[i] == 0)
+			{
+				rawlog.add(i*3+1, new float[]{10000f,10000f,10000f},true);
+				continue;
+			}
 			
 			float l1 = FloatMath.sqrt((float) (to[i].x*to[i].x + to[i].y*to[i].y));
 			float l2 = FloatMath.sqrt((float) (from[i].x*from[i].x + from[i].y*from[i].y));
 			// points too close to center wont play
+			float theta = 0.0f;
 			if (!((l1 < RESIZE_WIDTH/5) || (l2 < RESIZE_WIDTH/5))){
-				float theta = (float) (Math.atan2(to[i].y/l1,to[i].x/l1) - Math.atan2(from[i].y/l2,from[i].x/l2)) ;
+				theta = (float) (Math.atan2(to[i].y/l1,to[i].x/l1) - Math.atan2(from[i].y/l2,from[i].x/l2)) ;
 				if (theta < -Math.PI){
 					theta += 2*Math.PI;
 				}
 				thetas.add(theta);
 			}	
 			
-			medianX.insertShift((float)(to[i].x-from[i].x));
-			medianY.insertShift((float)(to[i].y-from[i].y));
-			/*
+			float dx = (float)(to[i].x-from[i].x);
+			float dy = (float)(to[i].y-from[i].y);
+			medianX.insertShift(dx);
+			medianY.insertShift(dy);
+			rawlog.add(i*3+1, new float[]{dx,dy,theta},true);
+			
 			Core.line(input, 
 					new Point(from[i].x/ratio, from[i].y/ratio), 
 					new Point(to[i].x/ratio, to[i].y/ratio), 
 					color1, 2);
-			*/
+			
 		}
 		
 		MedianFilter medianT = new MedianFilter(thetas.size());
@@ -186,5 +209,12 @@ public class ImageProcessor {
 	{
 		return rotT2;
 	}
-
+	public void save()
+	{
+		rawlog.save();
+	}
+	public void begin()
+	{
+		rawlog = new CsvLogger(ctx, "log_S4_raw_");
+	}
 }

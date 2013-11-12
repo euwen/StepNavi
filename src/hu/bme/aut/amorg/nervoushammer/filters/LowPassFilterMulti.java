@@ -1,25 +1,25 @@
-package com.example.stepnavi.filters;
+package hu.bme.aut.amorg.nervoushammer.filters;
 
 import java.util.ArrayList;
 
-public class ValidDataFilterMulti {
+public class LowPassFilterMulti {
 
-	private ArrayList<ValidDataFilter> filters;
+	private ArrayList<LowPassFilter> filters;
 	
-	public ValidDataFilterMulti(int dimension)
+	public LowPassFilterMulti(int dimension)
 	{
 		if (dimension < 1) return;
 		
-		filters = new ArrayList<ValidDataFilter>();
+		filters = new ArrayList<LowPassFilter>();
 		for (int i=0; i<dimension; i++)
 		{
-			filters.add(new ValidDataFilter());
+			filters.add(new LowPassFilter());
 		}
 	}
 	
 	public void reset()
 	{
-		for (ValidDataFilter filter : filters) {
+		for (LowPassFilter filter : filters) {
 			filter.reset();
 		}
 	}
@@ -43,4 +43,6 @@ public class ValidDataFilterMulti {
 		}
 		return result;
 	}
+
+	
 }

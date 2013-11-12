@@ -1,25 +1,25 @@
-package com.example.stepnavi.filters;
+package hu.bme.aut.amorg.nervoushammer.filters;
 
 import java.util.ArrayList;
 
-public class MedianFilterMulti {
+public class ValidDataFilterMulti {
 
-	private ArrayList<MedianFilter> filters;
+	private ArrayList<ValidDataFilter> filters;
 	
-	public MedianFilterMulti(int dimension, int windowSize)
+	public ValidDataFilterMulti(int dimension)
 	{
 		if (dimension < 1) return;
 		
-		filters = new ArrayList<MedianFilter>();
+		filters = new ArrayList<ValidDataFilter>();
 		for (int i=0; i<dimension; i++)
 		{
-			filters.add(new MedianFilter(windowSize));
+			filters.add(new ValidDataFilter());
 		}
 	}
 	
 	public void reset()
 	{
-		for (MedianFilter filter : filters) {
+		for (ValidDataFilter filter : filters) {
 			filter.reset();
 		}
 	}
@@ -34,15 +34,13 @@ public class MedianFilterMulti {
 		return result;
 	}
 	
-	public float[] filter(float[] values)
+	public float[] filter(float[] values, float magic)
 	{
 		int n = filters.size();
 		float[] result = new float[n];
 		for (int i=0; i<n; i++){
-			result[i] = filters.get(i).filter(values[i]);
+			result[i] = filters.get(i).filter(values[i], magic);
 		}
 		return result;
 	}
-
-	
 }

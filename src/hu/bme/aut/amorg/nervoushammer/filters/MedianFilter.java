@@ -1,4 +1,4 @@
-package com.example.stepnavi.filters;
+package hu.bme.aut.amorg.nervoushammer.filters;
 
 import java.util.ArrayList;
 

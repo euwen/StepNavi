@@ -1,4 +1,4 @@
-package com.example.stepnavi;
+package hu.bme.aut.amorg.nervoushammer;
 
 import java.io.BufferedWriter;
 import java.io.File;

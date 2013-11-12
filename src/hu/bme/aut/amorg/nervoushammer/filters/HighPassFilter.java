@@ -1,4 +1,4 @@
-package com.example.stepnavi.filters;
+package hu.bme.aut.amorg.nervoushammer.filters;
 
 public class HighPassFilter {
 

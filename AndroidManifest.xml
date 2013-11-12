@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.stepnavi"
+    package="hu.bme.aut.amorg.nervoushammer"
     android:versionCode="1"
     android:versionName="1.0" >
 
@@ -41,12 +41,12 @@
         android:label="@string/app_name"
         android:theme="@style/AppTheme" >
         <activity
-            android:name="com.example.stepnavi.MainActivity"
+            android:name="hu.bme.aut.amorg.nervoushammer.MainActivity"
             android:screenOrientation="portrait"
             android:label="@string/app_name" >
         </activity>
         <activity
-            android:name="com.example.stepnavi.StartActivity"
+            android:name="hu.bme.aut.amorg.nervoushammer.StartActivity"
             android:screenOrientation="portrait"
             android:label="@string/title_activity_start" >
             <intent-filter>
